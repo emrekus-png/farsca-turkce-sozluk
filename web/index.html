@@ -12,7 +12,7 @@
 <body>
   <div class="app" id="app">
     <header class="topbar">
-      <div class="brand">
+      <div class="brand" id="brand" title="Yönetici girişi için basılı tut">
         <div class="brand-mark" aria-hidden="true">ف</div>
         <div class="brand-text">
           <h1 id="appTitle">Farsça Türkçe Sözlük</h1>
@@ -41,9 +41,6 @@
               <input id="searchInput" type="search" placeholder="Kelime yazın…  (مثال: کتاب)" autocomplete="off" spellcheck="false" dir="auto">
               <button class="clear-btn" id="btnClear" type="button" aria-label="Temizle" hidden>×</button>
             </div>
-            <button class="speak-btn" id="btnSpeakQuery" type="button" aria-label="Sorguyu seslendir" title="Seslendir">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18 6a8 8 0 0 1 0 12"/></svg>
-            </button>
           </div>
           <div class="dir-row" id="dirRow">
             <button class="chip active" data-dir="auto" type="button">Otomatik</button>
@@ -52,7 +49,10 @@
           </div>
           <div class="filter-row">
             <span class="muted small" id="resultInfo">Yazmaya başlayın</span>
-            <button class="link-btn" id="btnImport" type="button">＋ Kelime ekle / içe aktar</button>
+            <span class="admin-tools" id="adminTools" hidden>
+              <button class="link-btn quiet" id="btnAdminLogout" type="button">Çıkış</button>
+              <button class="link-btn" id="btnImport" type="button">＋ Kelime ekle</button>
+            </span>
           </div>
         </div>
         <div id="results" class="results" aria-live="polite"></div>
@@ -146,10 +146,6 @@
           </div>
         </div>
         <label class="switch-row">
-          <span><b>Telaffuzu göster</b><small>Kelime kartlarında Latin harfli okunuş</small></span>
-          <input id="setPron" type="checkbox">
-        </label>
-        <label class="switch-row">
           <span><b>Örnek cümleleri göster</b><small>Var olan örnekleri kartta göster</small></span>
           <input id="setExamples" type="checkbox">
         </label>
@@ -165,16 +161,47 @@
     </div>
   </div>
 
-  <!-- İÇE AKTARMA -->
+  <!-- YÖNETİCİ: KELİME EKLEME -->
   <div class="sheet" id="importSheet" hidden>
     <div class="sheet-backdrop" data-close="importSheet"></div>
     <div class="sheet-panel">
       <div class="sheet-head">
-        <h2>Kendi sözlüğünü ekle</h2>
+        <h2>Kelime ekle <span class="admin-pill">yönetici</span></h2>
         <button class="icon-btn" type="button" data-close="importSheet" aria-label="Kapat">×</button>
       </div>
       <div class="sheet-body">
-        <p class="muted small">JSON veya CSV dosyası seç. Aynı kelime varsa senin versiyonun geçerli olur. Veriler yalnızca bu cihazda saklanır.</p>
+        <p class="muted small">Kitaptan baktığın kelimeyi yaz, kaydet. Farsça ve Türkçe zorunlu; telaffuz kartta küçük ve soluk görünür.</p>
+        <label class="field">
+          <span>Farsça *</span>
+          <input id="newFa" type="text" dir="rtl" spellcheck="false" placeholder="کتاب">
+        </label>
+        <label class="field">
+          <span>Türkçe *</span>
+          <input id="newTr" type="text" placeholder="kitap">
+        </label>
+        <div class="field-pair">
+          <label class="field">
+            <span>Telaffuz</span>
+            <input id="newPron" type="text" placeholder="ketab">
+          </label>
+          <label class="field">
+            <span>Tür / sınıf</span>
+            <input id="newPos" type="text" placeholder="isim">
+          </label>
+        </div>
+        <label class="field">
+          <span>Örnek – Farsça</span>
+          <input id="newExFa" type="text" dir="rtl" spellcheck="false" placeholder="من کتاب میخوانم.">
+        </label>
+        <label class="field">
+          <span>Örnek – Türkçe</span>
+          <input id="newExTr" type="text" placeholder="Ben kitap okuyorum.">
+        </label>
+        <button class="primary-btn full" id="btnAddOne" type="button">Kelimeyi kaydet</button>
+        <p class="muted small" id="addOneMsg" role="status"></p>
+
+        <div class="divider"></div>
+        <p class="muted small"><b>Toplu ekleme:</b> Dosya seç veya bir satıra bir kelime yaz. Aynı kelime varsa senin versiyonun geçerli olur.</p>
         <label class="upload" for="fileInput">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0L7 9m5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
           <span>Dosya seç veya buraya bırak</span>
@@ -182,15 +209,36 @@
         </label>
         <input id="fileInput" type="file" accept=".json,.csv,.txt,application/json,text/csv,text/plain" hidden>
         <label class="field">
-          <span>Ya da doğrudan yapıştır</span>
-          <textarea id="pasteArea" rows="7" spellcheck="false" placeholder='[{"fa":"کتاب","tr":"kitap"}]&#10;veya&#10;fa,tr,pron&#10;کتاب,kitap,ketab'></textarea>
+          <span>Satır formatı: <code>fa|tr|telaffuz</code></span>
+          <textarea id="pasteArea" rows="6" spellcheck="false" placeholder='کتاب|kitap|ketab&#10;دوست|arkadaş|dost&#10;veya JSON / CSV'></textarea>
         </label>
-        <button class="primary-btn full" id="btnPasteImport" type="button">İçe aktar</button>
+        <button class="primary-btn full" id="btnPasteImport" type="button">Toplu içe aktar</button>
         <p class="muted small" id="importMsg" role="status"></p>
         <div class="format-help">
+          <b>Örnek:</b> <code>کتاب|kitap|ketab|isim</code><br>
           <b>CSV başlıkları:</b> fa, tr, pron, pos, cat, exFa, exTr<br>
-          <b>JSON örnek:</b> <code>[{"fa":"کتاب","tr":"kitap","pron":"ketab"}]</code>
+          <b>JSON:</b> <code>[{"fa":"کتاب","tr":"kitap"}]</code>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- YÖNETİCİ GİRİŞİ -->
+  <div class="sheet" id="adminSheet" hidden>
+    <div class="sheet-backdrop" data-close="adminSheet"></div>
+    <div class="sheet-panel">
+      <div class="sheet-head">
+        <h2>Yönetici girişi</h2>
+        <button class="icon-btn" type="button" data-close="adminSheet" aria-label="Kapat">×</button>
+      </div>
+      <div class="sheet-body">
+        <p class="muted small">Kelime eklemek için PIN gir. Diğer kullanıcılar şifresiz kullanabilir.</p>
+        <label class="field">
+          <span>PIN</span>
+          <input id="adminPin" type="password" inputmode="numeric" maxlength="12" autocomplete="off" placeholder="••••">
+        </label>
+        <button class="primary-btn full" id="btnAdminLogin" type="button">Giriş yap</button>
+        <p class="muted small" id="adminMsg" role="status"></p>
       </div>
     </div>
   </div>

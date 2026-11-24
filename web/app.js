@@ -10,13 +10,19 @@
     history: 'fatr.history.v1',
   };
 
+  /* ============ YÖNETİCİ PIN'İ — KENDİ PIN'İNİ BURAYA YAZ ============ */
+  const ADMIN_PIN = '1234';
+  /* Uygulama tamamen cihazda çalıştığı için bu PIN ileri düzey koruma değildir;
+     günlük kullanım için yeterlidir. Değiştirmek için yukarıdaki sayıyı düzenle. */
+
+  let isAdmin = false;
+
   const DEFAULT_SETTINGS = {
     appName: 'Farsça Türkçe Sözlük',
     subtitle: 'Çift yönlü · Çevrimdışı · Senin sözlüğün',
     theme: 'system',
     color: '#0d5c63',
     font: 'medium',
-    pron: true,
     examples: true,
     onlyCustom: false,
     dir: 'auto',
@@ -191,7 +197,6 @@
 
   const ICONS = {
     star: '<svg viewBox="0 0 24 24"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3 6.4 20.2l1.1-6.2L3 9.6l6.2-.9L12 3Z"/></svg>',
-    speaker: '<svg viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18 6a8 8 0 0 1 0 12"/></svg>',
     copy: '<svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>',
   };
 
@@ -209,25 +214,6 @@
     t.classList.add('show');
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
-  }
-
-  function speak(text, lang) {
-    if (!('speechSynthesis' in window)) {
-      toast('Bu cihazda seslendirme desteklenmiyor');
-      return;
-    }
-    try {
-      window.speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = lang;
-      u.rate = 0.88;
-      const voices = window.speechSynthesis.getVoices() || [];
-      const v = voices.find((x) => x.lang.toLowerCase().replace('_', '-').startsWith(lang.slice(0, 2)));
-      if (v) u.voice = v;
-      window.speechSynthesis.speak(u);
-    } catch (e) {
-      toast('Seslendirme başlatılamadı');
-    }
   }
 
   function copyText(text) {
@@ -257,11 +243,13 @@
     const head = el('div', 'card-head');
     const main = el('div', 'card-main');
 
-    const fa = el('div', 'word-fa', entry.fa);
+    const line = el('div', 'word-line');
+    const fa = el('span', 'word-fa', entry.fa);
     fa.setAttribute('dir', 'rtl');
-    main.appendChild(fa);
+    line.appendChild(fa);
+    if (entry.pron) line.appendChild(el('span', 'word-pron', entry.pron));
+    main.appendChild(line);
     main.appendChild(el('div', 'word-tr', entry.tr));
-    if (settings.pron && entry.pron) main.appendChild(el('div', 'word-pron', '/' + entry.pron + '/'));
 
     const meta = el('div', 'meta');
     if (entry.pos) meta.appendChild(el('span', 'tag pos', entry.pos));
@@ -290,15 +278,6 @@
       toggleFav(entry.id);
     });
 
-    const speakBtn = el('button', 'mini-btn');
-    speakBtn.type = 'button';
-    speakBtn.title = 'Farsçayı seslendir';
-    speakBtn.innerHTML = ICONS.speaker;
-    speakBtn.addEventListener('click', (ev) => {
-      ev.stopPropagation();
-      speak(entry.fa, 'fa-IR');
-    });
-
     const copyBtn = el('button', 'mini-btn');
     copyBtn.type = 'button';
     copyBtn.title = 'Kopyala';
@@ -308,7 +287,7 @@
       copyText(entry.fa + ' — ' + entry.tr);
     });
 
-    actions.append(favBtn, speakBtn, copyBtn);
+    actions.append(favBtn, copyBtn);
     head.append(main, actions);
     wrap.appendChild(head);
     return wrap;
@@ -534,6 +513,13 @@
     if (t[0] === '[' || t[0] === '{') {
       const json = JSON.parse(t);
       items = Array.isArray(json) ? json : [json];
+    } else if (t.includes('|')) {
+      const keys = ['fa', 'tr', 'pron', 'pos', 'cat', 'exFa', 'exTr'];
+      items = t.split(/\r?\n/).filter((line) => line.trim()).map((line) => {
+        const o = {};
+        line.split('|').forEach((cell, i) => { if (keys[i]) o[keys[i]] = cell.trim(); });
+        return o;
+      });
     } else {
       const rows = parseCSV(t);
       if (!rows.length) return [];
@@ -549,6 +535,23 @@
     return items.map(normalizeImported).filter(Boolean).map(prepare);
   }
 
+  function saveCustom() {
+    save(KEYS.custom, custom.map((x) => ({
+      id: x.id, fa: x.fa, tr: x.tr, pron: x.pron,
+      pos: x.pos, cat: x.cat, exFa: x.exFa, exTr: x.exTr, custom: true,
+    })));
+  }
+
+  function upsert(items) {
+    const map = new Map(custom.map((x) => [x.id, prepare(x)]));
+    items.forEach((x) => map.set(x.id, x));
+    custom = Array.from(map.values());
+    saveCustom();
+    refreshPool();
+    renderResults();
+    renderFavorites();
+  }
+
   function doImport(text) {
     let items;
     try {
@@ -561,16 +564,32 @@
       $('#importMsg').textContent = 'Geçerli kelime bulunamadı. "fa" ve "tr" alanları gerekli.';
       return;
     }
-    const map = new Map(custom.map((x) => [x.id, prepare(x)]));
-    items.forEach((x) => map.set(x.id, x));
-    custom = Array.from(map.values());
-    save(KEYS.custom, custom.map((x) => ({ id: x.id, fa: x.fa, tr: x.tr, pron: x.pron, pos: x.pos, cat: x.cat, exFa: x.exFa, exTr: x.exTr, custom: true })));
-    refreshPool();
-    renderResults();
-    renderFavorites();
+    upsert(items);
     $('#importMsg').textContent = items.length + ' kelime eklendi/güncellendi. Toplam: ' + pool.length;
     $('#pasteArea').value = '';
     toast(items.length + ' kelime eklendi');
+  }
+
+  function addOne() {
+    const fa = $('#newFa').value.trim();
+    const tr = $('#newTr').value.trim();
+    if (!fa || !tr) {
+      $('#addOneMsg').textContent = 'Farsça ve Türkçe alanları zorunlu.';
+      return;
+    }
+    const entry = prepare({
+      fa, tr,
+      pron: $('#newPron').value.trim(),
+      pos: $('#newPos').value.trim(),
+      exFa: $('#newExFa').value.trim(),
+      exTr: $('#newExTr').value.trim(),
+      custom: true,
+    });
+    upsert([entry]);
+    ['#newFa', '#newTr', '#newPron', '#newPos', '#newExFa', '#newExTr'].forEach((s) => { $(s).value = ''; });
+    $('#addOneMsg').textContent = 'Eklendi: ' + fa + ' — ' + tr + ' · Toplam: ' + pool.length;
+    $('#newFa').focus();
+    toast('Kelime eklendi');
   }
 
   function download(filename, text) {
@@ -615,7 +634,6 @@
   function syncSettingsUI() {
     $('#setAppName').value = settings.appName;
     $('#setSubtitle').value = settings.subtitle;
-    $('#setPron').checked = !!settings.pron;
     $('#setExamples').checked = !!settings.examples;
     $('#setOnlyCustom').checked = !!settings.onlyCustom;
     $$('#setTheme button').forEach((b) => b.classList.toggle('active', b.dataset.value === settings.theme));
@@ -631,10 +649,58 @@
   function openSheet(id) { $('#' + id).hidden = false; }
   function closeSheet(id) { $('#' + id).hidden = true; }
 
+  function applyAdmin() {
+    $('#adminTools').hidden = !isAdmin;
+    if (!isAdmin) closeSheet('importSheet');
+  }
+
+  function adminLogin() {
+    const value = $('#adminPin').value.trim();
+    if (value === ADMIN_PIN) {
+      isAdmin = true;
+      applyAdmin();
+      $('#adminPin').value = '';
+      $('#adminMsg').textContent = '';
+      closeSheet('adminSheet');
+      openSheet('importSheet');
+      toast('Yönetici girişi yapıldı');
+    } else {
+      $('#adminMsg').textContent = 'PIN hatalı.';
+      $('#adminPin').value = '';
+      $('#adminPin').focus();
+    }
+  }
+
+  function adminLogout() {
+    isAdmin = false;
+    applyAdmin();
+    toast('Yönetici çıkışı yapıldı');
+  }
+
   /* ============================== Olay bağlamaları ============================== */
 
   function bind() {
     $$('.tab').forEach((b) => b.addEventListener('click', () => switchTab(b.dataset.tab)));
+
+    // Yönetici girişi: üstteki başlığa basılı tut (normal kullanıcıya görünmez).
+    const brand = $('#brand');
+    let pressTimer = null;
+    const startPress = (e) => {
+      if (e.type === 'mousedown' && e.button !== 0) return;
+      clearTimeout(pressTimer);
+      pressTimer = setTimeout(() => {
+        pressTimer = null;
+        $('#adminMsg').textContent = '';
+        $('#adminPin').value = '';
+        openSheet('adminSheet');
+        setTimeout(() => $('#adminPin').focus(), 60);
+      }, 700);
+    };
+    const cancelPress = () => { clearTimeout(pressTimer); pressTimer = null; };
+    brand.addEventListener('mousedown', startPress);
+    brand.addEventListener('touchstart', startPress, { passive: true });
+    ['mouseup', 'mouseleave', 'touchend', 'touchcancel'].forEach((ev) => brand.addEventListener(ev, cancelPress));
+    brand.addEventListener('contextmenu', (e) => e.preventDefault());
 
     const input = $('#searchInput');
     let timer;
@@ -652,12 +718,6 @@
       renderResults();
       input.focus();
     });
-    $('#btnSpeakQuery').addEventListener('click', () => {
-      const q = input.value.trim();
-      if (!q) { toast('Önce bir kelime yaz'); return; }
-      speak(q, detectDir(q) === 'fa-tr' ? 'fa-IR' : 'tr-TR');
-    });
-
     $$('#dirRow .chip').forEach((b) => b.addEventListener('click', () => {
       settings.dir = b.dataset.dir;
       commitSettings();
@@ -667,7 +727,7 @@
     $('#btnSettings').addEventListener('click', () => { syncSettingsUI(); openSheet('settingsSheet'); });
     $$('[data-close]').forEach((b) => b.addEventListener('click', () => closeSheet(b.dataset.close)));
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') { closeSheet('settingsSheet'); closeSheet('importSheet'); }
+      if (e.key === 'Escape') { closeSheet('settingsSheet'); closeSheet('importSheet'); closeSheet('adminSheet'); }
     });
 
     $('#setAppName').addEventListener('change', (e) => { settings.appName = e.target.value; commitSettings(); });
@@ -675,7 +735,6 @@
     $('#setTheme').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) { settings.theme = b.dataset.value; commitSettings(); } });
     $('#setFont').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) { settings.font = b.dataset.value; commitSettings(); } });
     $('#setColor').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) { settings.color = b.dataset.value; commitSettings(); } });
-    $('#setPron').addEventListener('change', (e) => { settings.pron = e.target.checked; commitSettings(); renderResults(); renderFavorites(); });
     $('#setExamples').addEventListener('change', (e) => { settings.examples = e.target.checked; commitSettings(); renderResults(); renderFavorites(); });
     $('#setOnlyCustom').addEventListener('change', (e) => {
       settings.onlyCustom = e.target.checked;
@@ -691,8 +750,17 @@
       location.reload();
     });
 
-    $('#btnImport').addEventListener('click', () => { $('#importMsg').textContent = ''; openSheet('importSheet'); });
+    $('#btnImport').addEventListener('click', () => {
+      if (!isAdmin) return;
+      $('#importMsg').textContent = '';
+      $('#addOneMsg').textContent = '';
+      openSheet('importSheet');
+    });
     $('#btnPasteImport').addEventListener('click', () => doImport($('#pasteArea').value));
+    $('#btnAddOne').addEventListener('click', addOne);
+    $('#btnAdminLogin').addEventListener('click', adminLogin);
+    $('#adminPin').addEventListener('keydown', (e) => { if (e.key === 'Enter') adminLogin(); });
+    $('#btnAdminLogout').addEventListener('click', adminLogout);
 
     const fileInput = $('#fileInput');
     fileInput.addEventListener('change', () => {
@@ -748,6 +816,7 @@
 
   bind();
   applySettings();
+  applyAdmin();
   refreshPool();
   renderResults();
   renderFavorites();

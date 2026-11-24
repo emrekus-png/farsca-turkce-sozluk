@@ -5,10 +5,9 @@
 ## Özellikler
 
 - Otomatik yön algılama: Farsça yazarsan Farsça→Türkçe, Türkçe yazarsan Türkçe→Farsça
-- Telaffuz (Latin harfli okunuş) ve örnek cümleler
-- Favoriler, arama geçmişi, kelime kopyalama
-- Seslendirme (cihazda Farsça/Türkçe ses paketi varsa)
-- 10 soruluk quiz modu
+- Telaffuz: Farsça kelimenin yanında küçük, soluk Latin harfli okunuş; isteğe bağlı örnek cümleler
+- Favoriler, arama geçmişi, kelime kopyalama, 10 soruluk quiz
+- Yönetici PIN'iyle korumalı kelime ekleme; diğer kullanıcılar şifresiz kullanabilir
 - Uygulama adı, alt başlık, tema, renk, yazı boyutu ayarları
 - Tamamen çevrimdışı; veriler yalnızca cihazında saklanır
 
@@ -62,9 +61,21 @@ node scripts/embed-dictionary.js
 
 GitHub'a push ettiğinde bu adım otomatik çalışır.
 
-### Telefondan (kurulum sonrası)
+### Telefondan (kurulum sonrası) — en kolay yöntem
 
-Uygulamada **＋ Kelime ekle / içe aktar** ile JSON veya CSV yükle. Aynı kelime varsa senin versiyonun gömülü olanı ezer. Ayarlardan **Sadece benim kelimelerim** seçeneğini açarsan gömülü sözlük tamamen gizlenir.
+1. Uygulamayı aç; üstteki **başlığa basılı tut** (yaklaşık 1 saniye).
+2. **Yönetici girişi** ekranında PIN'i gir (varsayılan: `1234`).
+3. Açılan **Kelime ekle** ekranında Farsça ve Türkçe alanlarını doldur; istersen telaffuz, tür ve örnek cümleleri de yaz → **Kelimeyi kaydet**.
+4. Kelime anında aramada görünür. Aynı kelime varsa senin versiyonun gömülü olanı ezer.
+
+PIN'i değiştirmek için `web/app.js` dosyasının üstündeki `const ADMIN_PIN = '1234';` satırını düzenle, commit + push et ve yeni APK'yı kur. Uygulama tamamen cihazda çalıştığı için bu PIN ciddi bir güvenlik bariyeri değil; günlük kullanım içindir.
+
+Toplu ekleme için aynı ekranda JSON/CSV dosyası seçebilir veya her satıra bir kelime olacak şekilde `fa|tr|telaffuz` formatında yapıştırabilirsin:
+
+```
+کتاب|kitap|ketab
+دوست|arkadaş|dost
+```
 
 CSV örneği (ilk satır başlık):
 
@@ -95,5 +106,5 @@ fa-tr-sozluk/
 
 ## Bilinen notlar
 
-- Seslendirme cihazdaki TTS seslerine bağlıdır; Farsça ses paketi yoksa sessiz kalabilir.
+- Seslendirme özelliği kaldırıldı; telaffuz yazı olarak gösterilir.
 - `app-debug.apk` kurulabilir bir derlemedir; Play Store için signed release gerekir.
