@@ -49,9 +49,12 @@
           </div>
           <div class="filter-row">
             <span class="muted small" id="resultInfo">Yazmaya başlayın</span>
-            <span class="admin-tools" id="adminTools" hidden>
-              <button class="link-btn quiet" id="btnAdminLogout" type="button">Çıkış</button>
-              <button class="link-btn" id="btnImport" type="button">＋ Kelime ekle</button>
+            <span class="add-tools">
+              <button class="link-btn" id="btnAddOneOpen" type="button">＋ Kelime ekle</button>
+              <span class="admin-tools" id="adminTools" hidden>
+                <button class="link-btn quiet" id="btnImport" type="button">Toplu ekle</button>
+                <button class="link-btn quiet" id="btnAdminLogout" type="button">Çıkış</button>
+              </span>
             </span>
           </div>
         </div>
@@ -161,13 +164,13 @@
     </div>
   </div>
 
-  <!-- YÖNETİCİ: KELİME EKLEME -->
-  <div class="sheet" id="importSheet" hidden>
-    <div class="sheet-backdrop" data-close="importSheet"></div>
+  <!-- TEK KELİME EKLEME (HERKES) -->
+  <div class="sheet" id="addSheet" hidden>
+    <div class="sheet-backdrop" data-close="addSheet"></div>
     <div class="sheet-panel">
       <div class="sheet-head">
-        <h2>Kelime ekle <span class="admin-pill">yönetici</span></h2>
-        <button class="icon-btn" type="button" data-close="importSheet" aria-label="Kapat">×</button>
+        <h2>Kelime ekle</h2>
+        <button class="icon-btn" type="button" data-close="addSheet" aria-label="Kapat">×</button>
       </div>
       <div class="sheet-body">
         <p class="muted small">Kitaptan baktığın kelimeyi yaz, kaydet. Farsça ve Türkçe zorunlu; telaffuz kartta küçük ve soluk görünür.</p>
@@ -199,23 +202,35 @@
         </label>
         <button class="primary-btn full" id="btnAddOne" type="button">Kelimeyi kaydet</button>
         <p class="muted small" id="addOneMsg" role="status"></p>
+      </div>
+    </div>
+  </div>
 
-        <div class="divider"></div>
-        <p class="muted small"><b>Toplu ekleme:</b> Dosya seç veya bir satıra bir kelime yaz. Aynı kelime varsa senin versiyonun geçerli olur.</p>
+  <!-- TOPLU EKLEME (SADECE YÖNETİCİ) -->
+  <div class="sheet" id="importSheet" hidden>
+    <div class="sheet-backdrop" data-close="importSheet"></div>
+    <div class="sheet-panel">
+      <div class="sheet-head">
+        <h2>Toplu kelime ekle <span class="admin-pill">yönetici</span></h2>
+        <button class="icon-btn" type="button" data-close="importSheet" aria-label="Kapat">×</button>
+      </div>
+      <div class="sheet-body">
+        <p class="muted small">Text dosyasına <b>her satıra bir kelime</b> yaz: <code>کتاب - kitap</code>. Her satır aramada ayrı bir kelime olarak çıkar. JSON/CSV de olur.</p>
         <label class="upload" for="fileInput">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0L7 9m5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
-          <span>Dosya seç veya buraya bırak</span>
-          <small>.json · .csv · .txt</small>
+          <span>Text dosyasını seç veya buraya bırak</span>
+          <small>.txt · .json · .csv</small>
         </label>
         <input id="fileInput" type="file" accept=".json,.csv,.txt,application/json,text/csv,text/plain" hidden>
         <label class="field">
-          <span>Satır formatı: <code>fa|tr|telaffuz</code></span>
-          <textarea id="pasteArea" rows="6" spellcheck="false" placeholder='کتاب|kitap|ketab&#10;دوست|arkadaş|dost&#10;veya JSON / CSV'></textarea>
+          <span>Ya da doğrudan yapıştır (her satır bir kelime)</span>
+          <textarea id="pasteArea" rows="7" spellcheck="false" placeholder='کتاب - kitap&#10;دوست - arkadaş&#10;خانه - ev&#10;veya JSON / CSV'></textarea>
         </label>
         <button class="primary-btn full" id="btnPasteImport" type="button">Toplu içe aktar</button>
         <p class="muted small" id="importMsg" role="status"></p>
         <div class="format-help">
-          <b>Örnek:</b> <code>کتاب|kitap|ketab|isim</code><br>
+          <b>Text örnek:</b> <code>کتاب - kitap</code> (her satır ayrı kelime)<br>
+          <b>İsteğe bağlı:</b> <code>کتاب - kitap - ketab</code> (telaffuz)<br>
           <b>CSV başlıkları:</b> fa, tr, pron, pos, cat, exFa, exTr<br>
           <b>JSON:</b> <code>[{"fa":"کتاب","tr":"kitap"}]</code>
         </div>
@@ -232,7 +247,7 @@
         <button class="icon-btn" type="button" data-close="adminSheet" aria-label="Kapat">×</button>
       </div>
       <div class="sheet-body">
-        <p class="muted small">Kelime eklemek için PIN gir. Diğer kullanıcılar şifresiz kullanabilir.</p>
+        <p class="muted small">Toplu text dosyası eklemek için PIN gir. Tek tek kelime ekleme herkese açıktır.</p>
         <label class="field">
           <span>PIN</span>
           <input id="adminPin" type="password" inputmode="numeric" maxlength="12" autocomplete="off" placeholder="••••">

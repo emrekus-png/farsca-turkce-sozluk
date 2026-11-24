@@ -506,6 +506,19 @@
     };
   }
 
+  function csvBlockToItems(lines) {
+    const rows = parseCSV(lines.join('\n'));
+    if (!rows.length) return [];
+    const head = rows[0].map((x) => normTr(x));
+    const hasHeader = head.includes('fa') && (head.includes('tr') || head.includes('meaning'));
+    const keys = hasHeader ? head : ['fa', 'tr', 'pron', 'pos', 'cat', 'exFa', 'exTr'];
+    return (hasHeader ? rows.slice(1) : rows).map((cells) => {
+      const o = {};
+      keys.forEach((k, i) => { if (cells[i] != null) o[k] = cells[i]; });
+      return o;
+    });
+  }
+
   function parseImport(text) {
     const t = String(text || '').trim();
     if (!t) return [];
@@ -513,25 +526,35 @@
     if (t[0] === '[' || t[0] === '{') {
       const json = JSON.parse(t);
       items = Array.isArray(json) ? json : [json];
-    } else if (t.includes('|')) {
-      const keys = ['fa', 'tr', 'pron', 'pos', 'cat', 'exFa', 'exTr'];
-      items = t.split(/\r?\n/).filter((line) => line.trim()).map((line) => {
-        const o = {};
-        line.split('|').forEach((cell, i) => { if (keys[i]) o[keys[i]] = cell.trim(); });
-        return o;
-      });
     } else {
-      const rows = parseCSV(t);
-      if (!rows.length) return [];
-      const head = rows[0].map((x) => normTr(x));
-      const hasHeader = head.includes('fa') && (head.includes('tr') || head.includes('meaning'));
-      const keys = hasHeader ? head : ['fa', 'tr', 'pron', 'pos', 'cat', 'exFa', 'exTr'];
-      items = (hasHeader ? rows.slice(1) : rows).map((cells) => {
-        const o = {};
-        keys.forEach((k, i) => { if (cells[i] != null) o[k] = cells[i]; });
-        return o;
+      items = [];
+      let csvLines = [];
+      const keys = ['fa', 'tr', 'pron', 'pos', 'cat', 'exFa', 'exTr'];
+      const flushCsv = () => {
+        if (csvLines.length) items = items.concat(csvBlockToItems(csvLines));
+        csvLines = [];
+      };
+      t.split(/\r?\n/).forEach((line) => {
+        const s = line.trim();
+        if (!s) return;
+        if (s.includes(' - ') && !s.includes(',')) {
+          // Her satır ayrı bir kelime: "کتاب - kitap" veya "کتاب - kitap - ketab"
+          flushCsv();
+          const o = {};
+          s.split(' - ').forEach((cell, i) => { if (keys[i]) o[keys[i]] = cell.trim(); });
+          items.push(o);
+        } else if (s.includes('|')) {
+          flushCsv();
+          const o = {};
+          s.split('|').forEach((cell, i) => { if (keys[i]) o[keys[i]] = cell.trim(); });
+          items.push(o);
+        } else {
+          csvLines.push(s);
+        }
       });
+      flushCsv();
     }
+    // Her satır kendi kimliğiyle ayrı bir kelime olur; aramada tek tek çıkar.
     return items.map(normalizeImported).filter(Boolean).map(prepare);
   }
 
@@ -565,7 +588,7 @@
       return;
     }
     upsert(items);
-    $('#importMsg').textContent = items.length + ' kelime eklendi/güncellendi. Toplam: ' + pool.length;
+    $('#importMsg').textContent = items.length + ' satır = ' + items.length + ' ayrı kelime eklendi/güncellendi. Toplam: ' + pool.length;
     $('#pasteArea').value = '';
     toast(items.length + ' kelime eklendi');
   }
@@ -727,7 +750,7 @@
     $('#btnSettings').addEventListener('click', () => { syncSettingsUI(); openSheet('settingsSheet'); });
     $$('[data-close]').forEach((b) => b.addEventListener('click', () => closeSheet(b.dataset.close)));
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') { closeSheet('settingsSheet'); closeSheet('importSheet'); closeSheet('adminSheet'); }
+      if (e.key === 'Escape') { closeSheet('settingsSheet'); closeSheet('addSheet'); closeSheet('importSheet'); closeSheet('adminSheet'); }
     });
 
     $('#setAppName').addEventListener('change', (e) => { settings.appName = e.target.value; commitSettings(); });
@@ -750,10 +773,16 @@
       location.reload();
     });
 
+    // Tek kelime ekleme: herkese açık, PIN gerekmez.
+    $('#btnAddOneOpen').addEventListener('click', () => {
+      $('#addOneMsg').textContent = '';
+      openSheet('addSheet');
+      setTimeout(() => $('#newFa').focus(), 60);
+    });
+    // Toplu text dosyası: sadece yönetici.
     $('#btnImport').addEventListener('click', () => {
       if (!isAdmin) return;
       $('#importMsg').textContent = '';
-      $('#addOneMsg').textContent = '';
       openSheet('importSheet');
     });
     $('#btnPasteImport').addEventListener('click', () => doImport($('#pasteArea').value));

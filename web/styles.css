@@ -129,6 +129,7 @@ main { flex: 1; padding: 0 16px 16px; }
 .link-btn { border: 0; background: transparent; color: var(--accent); font-size: .8rem; font-weight: 700; padding: 4px 0; white-space: nowrap; }
 .link-btn.quiet { color: var(--muted); font-weight: 600; }
 .link-btn:active { opacity: .6; }
+.add-tools { display: flex; align-items: center; gap: 12px; }
 .admin-tools { display: flex; align-items: center; gap: 12px; }
 .admin-tools[hidden] { display: none; }
 .admin-pill { font-size: .64rem; font-weight: 700; color: var(--accent); background: var(--accent-soft); border-radius: 99px; padding: 2px 7px; vertical-align: middle; margin-left: 4px; }

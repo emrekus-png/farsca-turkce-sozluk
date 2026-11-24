@@ -7,7 +7,7 @@
 - Otomatik yön algılama: Farsça yazarsan Farsça→Türkçe, Türkçe yazarsan Türkçe→Farsça
 - Telaffuz: Farsça kelimenin yanında küçük, soluk Latin harfli okunuş; isteğe bağlı örnek cümleler
 - Favoriler, arama geçmişi, kelime kopyalama, 10 soruluk quiz
-- Yönetici PIN'iyle korumalı kelime ekleme; diğer kullanıcılar şifresiz kullanabilir
+- Tek tek kelime ekleme herkese açık; toplu text dosyası yönetici PIN'iyle korunur
 - Uygulama adı, alt başlık, tema, renk, yazı boyutu ayarları
 - Tamamen çevrimdışı; veriler yalnızca cihazında saklanır
 
@@ -61,16 +61,28 @@ node scripts/embed-dictionary.js
 
 GitHub'a push ettiğinde bu adım otomatik çalışır.
 
-### Telefondan (kurulum sonrası) — en kolay yöntem
+### Telefondan tek tek kelime ekleme (herkes)
 
-1. Uygulamayı aç; üstteki **başlığa basılı tut** (yaklaşık 1 saniye).
-2. **Yönetici girişi** ekranında PIN'i gir (varsayılan: `1234`).
-3. Açılan **Kelime ekle** ekranında Farsça ve Türkçe alanlarını doldur; istersen telaffuz, tür ve örnek cümleleri de yaz → **Kelimeyi kaydet**.
-4. Kelime anında aramada görünür. Aynı kelime varsa senin versiyonun gömülü olanı ezer.
+1. Arama ekranındaki **＋ Kelime ekle** bağlantısına dokun.
+2. Farsça ve Türkçe alanlarını doldur; istersen telaffuz, tür ve örnek cümleleri de yaz → **Kelimeyi kaydet**.
+3. Kelime anında aramada görünür. Aynı kelime varsa senin versiyonun gömülü olanı ezer. PIN gerekmez.
+
+### Telefondan toplu text dosyası (sadece sen)
+
+1. Kitaptan kelimeleri bir `.txt` dosyasına **her satıra bir kelime** olacak şekilde yaz:
+   ```
+   کتاب - kitap
+   دوست - arkadaş
+   خانه - ev
+   ```
+   İsteğe bağlı telaffuz için: `کتاب - kitap - ketab`
+2. Uygulamada üstteki **başlığa basılı tut** (yaklaşık 1 saniye) → PIN gir (varsayılan: `1234`).
+3. Açılan **Toplu kelime ekle** ekranından dosyayı seç veya satırları yapıştır → **Toplu içe aktar**.
+4. **Her satır aramada ayrı bir kelime kartı olarak çıkar.** “Toplu ekle” bağlantısı ve giriş, yönetici olmadan görünmez.
 
 PIN'i değiştirmek için `web/app.js` dosyasının üstündeki `const ADMIN_PIN = '1234';` satırını düzenle, commit + push et ve yeni APK'yı kur. Uygulama tamamen cihazda çalıştığı için bu PIN ciddi bir güvenlik bariyeri değil; günlük kullanım içindir.
 
-Toplu ekleme için aynı ekranda JSON/CSV dosyası seçebilir veya her satıra bir kelime olacak şekilde `fa|tr|telaffuz` formatında yapıştırabilirsin:
+JSON/CSV de desteklenir; her satır yine ayrı bir kelime olur:
 
 ```
 کتاب|kitap|ketab
