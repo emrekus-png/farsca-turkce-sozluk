@@ -1,0 +1,11 @@
+{
+  "name": "Farsça Türkçe Sözlük",
+  "short_name": "FT Sözlük",
+  "description": "Çift yönlü, çevrimdışı Farsça - Türkçe sözlük",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#f4f6f5",
+  "theme_color": "#0d5c63",
+  "lang": "tr",
+  "icons": []
+}

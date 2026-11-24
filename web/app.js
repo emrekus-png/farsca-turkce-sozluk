@@ -1,0 +1,755 @@
+(function () {
+  'use strict';
+
+  /* ============================== Ayarlar / depolama ============================== */
+
+  const KEYS = {
+    settings: 'fatr.settings.v1',
+    custom: 'fatr.custom.v1',
+    favs: 'fatr.favorites.v1',
+    history: 'fatr.history.v1',
+  };
+
+  const DEFAULT_SETTINGS = {
+    appName: 'Farsça Türkçe Sözlük',
+    subtitle: 'Çift yönlü · Çevrimdışı · Senin sözlüğün',
+    theme: 'system',
+    color: '#0d5c63',
+    font: 'medium',
+    pron: true,
+    examples: true,
+    onlyCustom: false,
+    dir: 'auto',
+    quizDir: 'fa-tr',
+  };
+
+  function load(key, fallback) {
+    try {
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : fallback;
+    } catch (e) {
+      return fallback;
+    }
+  }
+
+  function save(key, value) {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch (e) {
+      toast('Depolama dolu olabilir');
+    }
+  }
+
+  let settings = Object.assign({}, DEFAULT_SETTINGS, load(KEYS.settings, {}));
+  let custom = load(KEYS.custom, []);
+  let favorites = load(KEYS.favs, []);
+  let history = load(KEYS.history, []);
+
+  const $ = (sel, root) => (root || document).querySelector(sel);
+  const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
+
+  /* ============================== Metin normalizasyonu ============================== */
+
+  const FA_MARKS = /[\u064B-\u065F\u0670\u06D6-\u06ED]/g;
+
+  function normFa(s) {
+    return String(s || '')
+      .replace(FA_MARKS, '')
+      .replace(/[\u0649\u064A]/g, 'ی')   // ى ي
+      .replace(/\u0643/g, 'ک')           // ك
+      .replace(/\u0629/g, 'ه')           // ة
+      .replace(/[\u0622\u0623\u0625]/g, 'ا') // آ أ إ
+      .replace(/\u0640/g, '')            // tatweel
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase();
+  }
+
+  function normTr(s) {
+    return String(s || '')
+      .toLowerCase()
+      .replace(/[iİı]/g, 'i')
+      .replace(/ş/g, 's').replace(/ğ/g, 'g').replace(/ü/g, 'u')
+      .replace(/ö/g, 'o').replace(/ç/g, 'c')
+      .replace(/[âîû]/g, (c) => ({ 'â': 'a', 'î': 'i', 'û': 'u' }[c]))
+      .replace(/['’`]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  const FA_RE = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
+
+  function detectDir(q) {
+    return FA_RE.test(q) ? 'fa-tr' : 'tr-fa';
+  }
+
+  function lev(a, b) {
+    if (a === b) return 0;
+    if (!a.length) return b.length;
+    if (!b.length) return a.length;
+    let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+    for (let i = 1; i <= a.length; i++) {
+      const cur = [i];
+      for (let j = 1; j <= b.length; j++) {
+        cur[j] = Math.min(cur[j - 1] + 1, prev[j] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      }
+      prev = cur;
+    }
+    return prev[b.length];
+  }
+
+  function makeId(entry) {
+    return String(entry.id || (entry.fa + '::' + entry.tr));
+  }
+
+  function prepare(entry) {
+    const e = {
+      id: makeId(entry),
+      fa: String(entry.fa || '').trim(),
+      tr: String(entry.tr || '').trim(),
+      pron: String(entry.pron || '').trim(),
+      pos: String(entry.pos || '').trim(),
+      cat: String(entry.cat || '').trim(),
+      exFa: String(entry.exFa || '').trim(),
+      exTr: String(entry.exTr || '').trim(),
+      custom: !!entry.custom,
+    };
+    e.nfa = normFa(e.fa);
+    e.ntr = normTr(e.tr);
+    e.npron = normTr(e.pron);
+    return e;
+  }
+
+  function buildPool() {
+    const seed = (window.SEED_DICTIONARY || []).map((x) => Object.assign({}, x, { custom: false }));
+    const customPrepared = custom.map((x) => Object.assign({}, x, { custom: true }));
+    const override = new Set(customPrepared.map((x) => x.nfa + '|' + x.ntr));
+    const base = settings.onlyCustom ? [] : seed.filter((x) => !override.has(normFa(x.fa) + '|' + normTr(x.tr)));
+    const all = customPrepared.concat(base).map(prepare);
+    const seen = new Set();
+    return all.filter((x) => {
+      if (!x.fa || !x.tr || seen.has(x.id)) return false;
+      seen.add(x.id);
+      return true;
+    });
+  }
+
+  let pool = buildPool();
+  let featured = [];
+
+  function refreshPool() {
+    pool = buildPool();
+    featured = pool.slice().sort(() => Math.random() - 0.5).slice(0, 12);
+    $('#footerCount').textContent = pool.length + ' kelime';
+    $('#resultInfo').textContent = pool.length + ' kelime yüklendi';
+  }
+
+  /* ============================== Arama ============================== */
+
+  function scoreEntry(e, q, dir) {
+    const targets = dir === 'fa-tr' ? [e.nfa] : dir === 'tr-fa' ? [e.ntr] : [e.nfa, e.ntr];
+    let best = 0;
+    for (const t of targets) {
+      if (!t) continue;
+      if (t === q) best = Math.max(best, 100);
+      else if (t.startsWith(q)) best = Math.max(best, 82 - Math.min(12, t.length - q.length));
+      else if (t.includes(q)) best = Math.max(best, 64);
+      else if (q.length >= 4 && t.split(' ').some((w) => w.startsWith(q))) best = Math.max(best, 56);
+    }
+    if (e.npron && e.npron.includes(q)) best = Math.max(best, 44);
+    const words = q.split(' ').filter(Boolean);
+    if (words.length > 1) {
+      const hay = targets.join(' ');
+      const hits = words.filter((w) => hay.includes(w)).length;
+      if (hits === words.length) best = Math.max(best, 58);
+      else if (hits > 0) best = Math.max(best, 28 + hits * 9);
+    }
+    if (!best && q.length >= 3) {
+      for (const t of targets) {
+        if (!t) continue;
+        const d = lev(q, t.slice(0, Math.max(q.length, t.length)));
+        if (d <= Math.max(1, Math.floor(q.length / 3))) best = Math.max(best, 30 - d * 6);
+      }
+    }
+    return best;
+  }
+
+  function search(raw) {
+    const q = normFa(raw).trim();
+    if (!q) return featured;
+    const dir = settings.dir === 'auto' ? detectDir(raw) : settings.dir;
+    const nq = dir === 'tr-fa' ? normTr(raw).trim() : q;
+    return pool
+      .map((e) => ({ e, s: scoreEntry(e, nq, dir) }))
+      .filter((x) => x.s > 0)
+      .sort((a, b) => b.s - a.s || a.e.fa.localeCompare(b.e.fa, 'tr'))
+      .slice(0, 60)
+      .map((x) => x.e);
+  }
+
+  /* ============================== Arayüz yardımcıları ============================== */
+
+  const ICONS = {
+    star: '<svg viewBox="0 0 24 24"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3 6.4 20.2l1.1-6.2L3 9.6l6.2-.9L12 3Z"/></svg>',
+    speaker: '<svg viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18 6a8 8 0 0 1 0 12"/></svg>',
+    copy: '<svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>',
+  };
+
+  function el(tag, cls, text) {
+    const n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  }
+
+  let toastTimer;
+  function toast(msg) {
+    const t = $('#toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+  }
+
+  function speak(text, lang) {
+    if (!('speechSynthesis' in window)) {
+      toast('Bu cihazda seslendirme desteklenmiyor');
+      return;
+    }
+    try {
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = lang;
+      u.rate = 0.88;
+      const voices = window.speechSynthesis.getVoices() || [];
+      const v = voices.find((x) => x.lang.toLowerCase().replace('_', '-').startsWith(lang.slice(0, 2)));
+      if (v) u.voice = v;
+      window.speechSynthesis.speak(u);
+    } catch (e) {
+      toast('Seslendirme başlatılamadı');
+    }
+  }
+
+  function copyText(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(() => toast('Kopyalandı')).catch(() => toast('Kopyalanamadı'));
+    } else {
+      toast('Kopyalama bu cihazda kullanılamıyor');
+    }
+  }
+
+  function addToHistory(q) {
+    const text = String(q || '').trim();
+    if (text.length < 2) return;
+    history = [{ q: text, dir: settings.dir === 'auto' ? detectDir(text) : settings.dir, t: Date.now() }]
+      .concat(history.filter((h) => normFa(h.q) !== normFa(text)))
+      .slice(0, 40);
+    save(KEYS.history, history);
+    renderHistory();
+  }
+
+  /* ============================== Kart oluşturma ============================== */
+
+  function card(entry) {
+    const wrap = el('article', 'card');
+    wrap.dataset.id = entry.id;
+
+    const head = el('div', 'card-head');
+    const main = el('div', 'card-main');
+
+    const fa = el('div', 'word-fa', entry.fa);
+    fa.setAttribute('dir', 'rtl');
+    main.appendChild(fa);
+    main.appendChild(el('div', 'word-tr', entry.tr));
+    if (settings.pron && entry.pron) main.appendChild(el('div', 'word-pron', '/' + entry.pron + '/'));
+
+    const meta = el('div', 'meta');
+    if (entry.pos) meta.appendChild(el('span', 'tag pos', entry.pos));
+    if (entry.cat) meta.appendChild(el('span', 'tag', entry.cat));
+    if (entry.custom) meta.appendChild(el('span', 'tag', 'senin eklediğin'));
+    if (meta.children.length) main.appendChild(meta);
+
+    if (settings.examples && (entry.exFa || entry.exTr)) {
+      const ex = el('div', 'example');
+      if (entry.exFa) {
+        const x = el('div', 'ex-fa', entry.exFa);
+        x.setAttribute('dir', 'rtl');
+        ex.appendChild(x);
+      }
+      if (entry.exTr) ex.appendChild(el('div', 'ex-tr', entry.exTr));
+      main.appendChild(ex);
+    }
+
+    const actions = el('div', 'card-actions');
+    const favBtn = el('button', 'mini-btn' + (favorites.includes(entry.id) ? ' active' : ''));
+    favBtn.type = 'button';
+    favBtn.title = 'Favorilere ekle/çıkar';
+    favBtn.innerHTML = ICONS.star;
+    favBtn.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      toggleFav(entry.id);
+    });
+
+    const speakBtn = el('button', 'mini-btn');
+    speakBtn.type = 'button';
+    speakBtn.title = 'Farsçayı seslendir';
+    speakBtn.innerHTML = ICONS.speaker;
+    speakBtn.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      speak(entry.fa, 'fa-IR');
+    });
+
+    const copyBtn = el('button', 'mini-btn');
+    copyBtn.type = 'button';
+    copyBtn.title = 'Kopyala';
+    copyBtn.innerHTML = ICONS.copy;
+    copyBtn.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      copyText(entry.fa + ' — ' + entry.tr);
+    });
+
+    actions.append(favBtn, speakBtn, copyBtn);
+    head.append(main, actions);
+    wrap.appendChild(head);
+    return wrap;
+  }
+
+  function renderResults() {
+    const q = $('#searchInput').value;
+    const box = $('#results');
+    box.innerHTML = '';
+    const list = search(q);
+    if (!list.length) {
+      const empty = el('div', 'empty');
+      empty.appendChild(el('div', 'big', '؟'));
+      empty.appendChild(el('div', '', 'Sonuç bulunamadı.'));
+      const sub = el('div', 'small', 'Farklı bir yazım dene veya kendi kelimeni ekle.');
+      sub.style.marginTop = '6px';
+      empty.appendChild(sub);
+      box.appendChild(empty);
+      $('#resultInfo').textContent = '0 sonuç';
+      return;
+    }
+    const frag = document.createDocumentFragment();
+    list.forEach((e) => frag.appendChild(card(e)));
+    box.appendChild(frag);
+    $('#resultInfo').textContent = list.length + (q.trim() ? ' sonuç' : ' rastgele kelime');
+  }
+
+  function renderFavorites() {
+    const box = $('#favList');
+    box.innerHTML = '';
+    $('#favCount').textContent = favorites.length;
+    if (!favorites.length) {
+      const e = el('div', 'empty');
+      e.appendChild(el('div', 'big', '☆'));
+      e.appendChild(el('div', '', 'Henüz favori yok'));
+      e.appendChild(el('div', 'small', 'Kelime kartındaki yıldıza dokun.'));
+      box.appendChild(e);
+      return;
+    }
+    const byId = new Map(pool.map((e) => [e.id, e]));
+    favorites.forEach((id) => {
+      const e = byId.get(id);
+      if (e) box.appendChild(card(e));
+    });
+  }
+
+  function renderHistory() {
+    const box = $('#historyList');
+    box.innerHTML = '';
+    if (!history.length) {
+      const e = el('div', 'empty');
+      e.appendChild(el('div', 'big', '↺'));
+      e.appendChild(el('div', '', 'Geçmiş boş'));
+      box.appendChild(e);
+      return;
+    }
+    history.forEach((h) => {
+      const row = el('div', 'history-item');
+      const q = el('div', 'q', h.q);
+      if (FA_RE.test(h.q)) q.setAttribute('dir', 'rtl');
+      const when = new Date(h.t);
+      const time = el('time', '', when.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' }) + ' ' + when.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }));
+      const go = el('button', '', '↗');
+      go.type = 'button';
+      go.title = 'Tekrar ara';
+      go.addEventListener('click', () => {
+        $('#searchInput').value = h.q;
+        switchTab('search');
+        renderResults();
+      });
+      row.append(q, time, go);
+      box.appendChild(row);
+    });
+  }
+
+  function toggleFav(id) {
+    if (favorites.includes(id)) favorites = favorites.filter((x) => x !== id);
+    else favorites = [id].concat(favorites);
+    save(KEYS.favs, favorites);
+    $('#favCount').textContent = favorites.length;
+    renderResults();
+    renderFavorites();
+  }
+
+  /* ============================== Sekmeler ============================== */
+
+  function switchTab(name) {
+    $$('.tab').forEach((b) => b.classList.toggle('active', b.dataset.tab === name));
+    $$('.view').forEach((v) => v.classList.toggle('active', v.id === 'view-' + name));
+    if (name === 'favorites') renderFavorites();
+    if (name === 'history') renderHistory();
+  }
+
+  /* ============================== Quiz ============================== */
+
+  const quiz = { list: [], i: 0, score: 0, dir: 'fa-tr', answered: false };
+
+  function startQuiz() {
+    if (pool.length < 4) {
+      toast('Quiz için en az 4 kelime gerekli');
+      return;
+    }
+    quiz.list = pool.slice().sort(() => Math.random() - 0.5).slice(0, 10);
+    quiz.i = 0;
+    quiz.score = 0;
+    quiz.dir = settings.quizDir;
+    $('#quizBody').innerHTML = '';
+    showQuestion();
+  }
+
+  function showQuestion() {
+    quiz.answered = false;
+    const body = $('#quizBody');
+    body.innerHTML = '';
+    if (quiz.i >= quiz.list.length) {
+      $('#quizProgress').textContent = 'Tamamlandı';
+      const score = el('div', 'score');
+      score.appendChild(el('b', '', quiz.score + '/' + quiz.list.length));
+      score.appendChild(el('div', '', quiz.score === quiz.list.length ? 'Muhteşem! 🎉' : quiz.score >= quiz.list.length / 2 ? 'İyi gidiyorsun 👍' : 'Tekrar denemek ister misin?'));
+      body.appendChild(score);
+      const again = el('button', 'primary-btn full', 'Tekrar başla');
+      again.type = 'button';
+      again.addEventListener('click', startQuiz);
+      body.appendChild(again);
+      return;
+    }
+
+    $('#quizProgress').textContent = (quiz.i + 1) + ' / ' + quiz.list.length + ' · ' + quiz.score + ' doğru';
+    const current = quiz.list[quiz.i];
+    const answer = quiz.dir === 'fa-tr' ? current.tr : current.fa;
+
+    const word = el('div', 'quiz-word');
+    const prompt = el('div', quiz.dir === 'fa-tr' ? 'fa' : 'tr', quiz.dir === 'fa-tr' ? current.fa : current.tr);
+    if (quiz.dir === 'fa-tr') prompt.setAttribute('dir', 'rtl');
+    word.appendChild(prompt);
+    body.appendChild(word);
+
+    const wrong = pool.filter((e) => e.id !== current.id && (quiz.dir !== 'fa-tr' || e.tr !== current.tr) && (quiz.dir !== 'tr-fa' || e.fa !== current.fa));
+    const distract = wrong.filter((e) => e.cat === current.cat || e.pos === current.pos);
+    const source = distract.length >= 3 ? distract : wrong;
+    const options = [current].concat(source.sort(() => Math.random() - 0.5).slice(0, 3)).sort(() => Math.random() - 0.5);
+
+    const optBox = el('div', 'quiz-options');
+    options.forEach((o) => {
+      const label = quiz.dir === 'fa-tr' ? o.tr : o.fa;
+      const b = el('button', 'option', label);
+      b.type = 'button';
+      if (quiz.dir === 'tr-fa') b.setAttribute('dir', 'rtl');
+      b.addEventListener('click', () => {
+        if (quiz.answered) return;
+        quiz.answered = true;
+        const correct = o.id === current.id;
+        if (correct) quiz.score++;
+        b.classList.add(correct ? 'correct' : 'wrong');
+        if (!correct) {
+          const right = options.find((x) => x.id === current.id);
+          const rightBtn = $$('.option', optBox).find((x) => x.textContent === (quiz.dir === 'fa-tr' ? right.tr : right.fa));
+          if (rightBtn) rightBtn.classList.add('correct');
+        }
+        const feedback = el('div', 'quiz-feedback', correct ? '✓ Doğru!' : '✗ Doğrusu: ' + answer);
+        feedback.style.color = correct ? '#2e8b50' : 'var(--danger)';
+        body.appendChild(feedback);
+        setTimeout(() => { quiz.i++; showQuestion(); }, 1100);
+      });
+      optBox.appendChild(b);
+    });
+    body.appendChild(optBox);
+  }
+
+  /* ============================== İçe / dışa aktarma ============================== */
+
+  function parseCSV(text) {
+    const rows = [];
+    let row = [], cell = '', quoted = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (quoted) {
+        if (c === '"' && text[i + 1] === '"') { cell += '"'; i++; }
+        else if (c === '"') quoted = false;
+        else cell += c;
+      } else if (c === '"') quoted = true;
+      else if (c === ',') { row.push(cell); cell = ''; }
+      else if (c === '\n' || c === '\r') {
+        if (c === '\r' && text[i + 1] === '\n') i++;
+        row.push(cell); cell = '';
+        if (row.some((x) => x.trim())) rows.push(row);
+        row = [];
+      } else cell += c;
+    }
+    row.push(cell);
+    if (row.some((x) => x.trim())) rows.push(row);
+    return rows;
+  }
+
+  function normalizeImported(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+    const get = (...names) => {
+      for (const n of names) {
+        const v = raw[n];
+        if (v != null && String(v).trim()) return String(v).trim();
+      }
+      return '';
+    };
+    const fa = get('fa', 'farsça', 'farsça kelime', 'persian', 'word_fa', 'word');
+    const tr = get('tr', 'türkçe', 'türkçe karşılık', 'turkish', 'translation', 'meaning', 'word_tr');
+    if (!fa || !tr) return null;
+    return {
+      id: get('id') || (fa + '::' + tr),
+      fa, tr,
+      pron: get('pron', 'telaffuz', 'pronunciation'),
+      pos: get('pos', 'tür', 'part of speech'),
+      cat: get('cat', 'kategori', 'category'),
+      exFa: get('exFa', 'örnek_fa', 'example_fa'),
+      exTr: get('exTr', 'örnek_tr', 'example_tr'),
+      custom: true,
+    };
+  }
+
+  function parseImport(text) {
+    const t = String(text || '').trim();
+    if (!t) return [];
+    let items;
+    if (t[0] === '[' || t[0] === '{') {
+      const json = JSON.parse(t);
+      items = Array.isArray(json) ? json : [json];
+    } else {
+      const rows = parseCSV(t);
+      if (!rows.length) return [];
+      const head = rows[0].map((x) => normTr(x));
+      const hasHeader = head.includes('fa') && (head.includes('tr') || head.includes('meaning'));
+      const keys = hasHeader ? head : ['fa', 'tr', 'pron', 'pos', 'cat', 'exFa', 'exTr'];
+      items = (hasHeader ? rows.slice(1) : rows).map((cells) => {
+        const o = {};
+        keys.forEach((k, i) => { if (cells[i] != null) o[k] = cells[i]; });
+        return o;
+      });
+    }
+    return items.map(normalizeImported).filter(Boolean).map(prepare);
+  }
+
+  function doImport(text) {
+    let items;
+    try {
+      items = parseImport(text);
+    } catch (e) {
+      $('#importMsg').textContent = 'Dosya okunamadı: ' + e.message;
+      return;
+    }
+    if (!items.length) {
+      $('#importMsg').textContent = 'Geçerli kelime bulunamadı. "fa" ve "tr" alanları gerekli.';
+      return;
+    }
+    const map = new Map(custom.map((x) => [x.id, prepare(x)]));
+    items.forEach((x) => map.set(x.id, x));
+    custom = Array.from(map.values());
+    save(KEYS.custom, custom.map((x) => ({ id: x.id, fa: x.fa, tr: x.tr, pron: x.pron, pos: x.pos, cat: x.cat, exFa: x.exFa, exTr: x.exTr, custom: true })));
+    refreshPool();
+    renderResults();
+    renderFavorites();
+    $('#importMsg').textContent = items.length + ' kelime eklendi/güncellendi. Toplam: ' + pool.length;
+    $('#pasteArea').value = '';
+    toast(items.length + ' kelime eklendi');
+  }
+
+  function download(filename, text) {
+    const blob = new Blob([text], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+  }
+
+  /* ============================== Ayarların uygulanması ============================== */
+
+  function applySettings() {
+    const root = document.documentElement;
+    const dark = settings.theme === 'dark' ||
+      (settings.theme === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    root.dataset.theme = dark ? 'dark' : 'light';
+    root.dataset.font = settings.font;
+    root.style.setProperty('--accent', settings.color);
+    const rgb = hexToRgb(settings.color);
+    root.style.setProperty('--accent-soft', 'rgba(' + rgb + ',.14)');
+    $('#appTitle').textContent = settings.appName || DEFAULT_SETTINGS.appName;
+    $('#appSubtitle').textContent = settings.subtitle || '';
+    document.title = settings.appName || DEFAULT_SETTINGS.appName;
+
+    $$('#dirRow .chip').forEach((b) => b.classList.toggle('active', b.dataset.dir === settings.dir));
+    $$('#quizDirRow .chip, .quiz-dirs .chip').forEach((b) => b.classList.toggle('active', b.dataset.quizDir === settings.quizDir));
+    syncSettingsUI();
+  }
+
+  function hexToRgb(hex) {
+    const m = String(hex).replace('#', '');
+    const v = m.length === 3 ? m.split('').map((c) => c + c).join('') : m;
+    const n = parseInt(v, 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255].join(',');
+  }
+
+  function syncSettingsUI() {
+    $('#setAppName').value = settings.appName;
+    $('#setSubtitle').value = settings.subtitle;
+    $('#setPron').checked = !!settings.pron;
+    $('#setExamples').checked = !!settings.examples;
+    $('#setOnlyCustom').checked = !!settings.onlyCustom;
+    $$('#setTheme button').forEach((b) => b.classList.toggle('active', b.dataset.value === settings.theme));
+    $$('#setColor button').forEach((b) => b.classList.toggle('active', b.dataset.value === settings.color));
+    $$('#setFont button').forEach((b) => b.classList.toggle('active', b.dataset.value === settings.font));
+  }
+
+  function commitSettings() {
+    save(KEYS.settings, settings);
+    applySettings();
+  }
+
+  function openSheet(id) { $('#' + id).hidden = false; }
+  function closeSheet(id) { $('#' + id).hidden = true; }
+
+  /* ============================== Olay bağlamaları ============================== */
+
+  function bind() {
+    $$('.tab').forEach((b) => b.addEventListener('click', () => switchTab(b.dataset.tab)));
+
+    const input = $('#searchInput');
+    let timer;
+    input.addEventListener('input', () => {
+      $('#btnClear').hidden = !input.value;
+      clearTimeout(timer);
+      timer = setTimeout(renderResults, 110);
+    });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') addToHistory(input.value);
+    });
+    $('#btnClear').addEventListener('click', () => {
+      input.value = '';
+      $('#btnClear').hidden = true;
+      renderResults();
+      input.focus();
+    });
+    $('#btnSpeakQuery').addEventListener('click', () => {
+      const q = input.value.trim();
+      if (!q) { toast('Önce bir kelime yaz'); return; }
+      speak(q, detectDir(q) === 'fa-tr' ? 'fa-IR' : 'tr-TR');
+    });
+
+    $$('#dirRow .chip').forEach((b) => b.addEventListener('click', () => {
+      settings.dir = b.dataset.dir;
+      commitSettings();
+      renderResults();
+    }));
+
+    $('#btnSettings').addEventListener('click', () => { syncSettingsUI(); openSheet('settingsSheet'); });
+    $$('[data-close]').forEach((b) => b.addEventListener('click', () => closeSheet(b.dataset.close)));
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { closeSheet('settingsSheet'); closeSheet('importSheet'); }
+    });
+
+    $('#setAppName').addEventListener('change', (e) => { settings.appName = e.target.value; commitSettings(); });
+    $('#setSubtitle').addEventListener('change', (e) => { settings.subtitle = e.target.value; commitSettings(); });
+    $('#setTheme').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) { settings.theme = b.dataset.value; commitSettings(); } });
+    $('#setFont').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) { settings.font = b.dataset.value; commitSettings(); } });
+    $('#setColor').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) { settings.color = b.dataset.value; commitSettings(); } });
+    $('#setPron').addEventListener('change', (e) => { settings.pron = e.target.checked; commitSettings(); renderResults(); renderFavorites(); });
+    $('#setExamples').addEventListener('change', (e) => { settings.examples = e.target.checked; commitSettings(); renderResults(); renderFavorites(); });
+    $('#setOnlyCustom').addEventListener('change', (e) => {
+      settings.onlyCustom = e.target.checked;
+      commitSettings();
+      refreshPool();
+      renderResults();
+      renderFavorites();
+    });
+
+    $('#btnResetData').addEventListener('click', () => {
+      if (!confirm('Favoriler, geçmiş, eklediğin kelimeler ve ayarlar silinecek. Emin misin?')) return;
+      Object.values(KEYS).forEach((k) => { try { localStorage.removeItem(k); } catch (e) {} });
+      location.reload();
+    });
+
+    $('#btnImport').addEventListener('click', () => { $('#importMsg').textContent = ''; openSheet('importSheet'); });
+    $('#btnPasteImport').addEventListener('click', () => doImport($('#pasteArea').value));
+
+    const fileInput = $('#fileInput');
+    fileInput.addEventListener('change', () => {
+      const f = fileInput.files && fileInput.files[0];
+      if (!f) return;
+      const reader = new FileReader();
+      reader.onload = () => doImport(String(reader.result || ''));
+      reader.onerror = () => { $('#importMsg').textContent = 'Dosya okunamadı'; };
+      reader.readAsText(f, 'utf-8');
+      fileInput.value = '';
+    });
+
+    const upload = $('.upload');
+    ['dragenter', 'dragover'].forEach((ev) => upload.addEventListener(ev, (e) => { e.preventDefault(); upload.style.borderColor = 'var(--accent)'; }));
+    ['dragleave', 'drop'].forEach((ev) => upload.addEventListener(ev, (e) => { e.preventDefault(); upload.style.borderColor = ''; }));
+    upload.addEventListener('drop', (e) => {
+      const f = e.dataTransfer.files && e.dataTransfer.files[0];
+      if (!f) return;
+      const reader = new FileReader();
+      reader.onload = () => doImport(String(reader.result || ''));
+      reader.readAsText(f, 'utf-8');
+    });
+
+    $('#btnExportFav').addEventListener('click', () => {
+      const byId = new Map(pool.map((e) => [e.id, e]));
+      const list = favorites.map((id) => byId.get(id)).filter(Boolean).map(({ id, fa, tr, pron, pos, cat, exFa, exTr }) => ({ id, fa, tr, pron, pos, cat, exFa, exTr }));
+      if (!list.length) { toast('Dışa aktarılacak favori yok'); return; }
+      download('favorilerim.json', JSON.stringify(list, null, 2));
+    });
+
+    $('#btnClearHistory').addEventListener('click', () => {
+      if (!history.length) return;
+      history = [];
+      save(KEYS.history, history);
+      renderHistory();
+    });
+
+    $$('.quiz-dirs .chip').forEach((b) => b.addEventListener('click', () => {
+      settings.quizDir = b.dataset.quizDir;
+      commitSettings();
+    }));
+    $('#btnStartQuiz').addEventListener('click', startQuiz);
+    $('#btnNewQuiz').addEventListener('click', startQuiz);
+
+    if (window.matchMedia) {
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+        if (settings.theme === 'system') applySettings();
+      });
+    }
+  }
+
+  /* ============================== Başlat ============================== */
+
+  bind();
+  applySettings();
+  refreshPool();
+  renderResults();
+  renderFavorites();
+  renderHistory();
+})();

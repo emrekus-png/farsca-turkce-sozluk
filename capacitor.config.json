@@ -1,0 +1,15 @@
+{
+  "appId": "com.sozluk.farsca.turkce",
+  "appName": "Farsça Türkçe Sözlük",
+  "webDir": "web",
+  "bundledWebRuntime": false,
+  "android": {
+    "allowMixedContent": false,
+    "captureInput": true
+  },
+  "plugins": {
+    "Keyboard": {
+      "resizeOnFullScreen": true
+    }
+  }
+}

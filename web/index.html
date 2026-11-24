@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0d5c63">
+  <meta name="description" content="Çevrimdışı Farsça - Türkçe / Türkçe - Farsça sözlük">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="styles.css">
+  <title>Farsça Türkçe Sözlük</title>
+</head>
+<body>
+  <div class="app" id="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">ف</div>
+        <div class="brand-text">
+          <h1 id="appTitle">Farsça Türkçe Sözlük</h1>
+          <p id="appSubtitle">Çift yönlü · Çevrimdışı · Senin sözlüğün</p>
+        </div>
+      </div>
+      <button class="icon-btn" id="btnSettings" type="button" aria-label="Ayarlar" title="Ayarlar">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5A3.5 3.5 0 1 0 12 8.5a3.5 3.5 0 0 0 0 7Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 9 19.38a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.64 15a1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.62 9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.64a1.7 1.7 0 0 0 1.03-1.56V3a2 2 0 1 1 4 0v.09A1.7 1.7 0 0 0 15 4.62a1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.36 9c.13.4.5.68.93.7H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1.3Z"/></svg>
+      </button>
+    </header>
+
+    <nav class="tabs" id="tabs" aria-label="Bölümler">
+      <button class="tab active" data-tab="search" type="button">Sözlük</button>
+      <button class="tab" data-tab="favorites" type="button">Favoriler <span class="count" id="favCount">0</span></button>
+      <button class="tab" data-tab="history" type="button">Geçmiş</button>
+      <button class="tab" data-tab="quiz" type="button">Quiz</button>
+    </nav>
+
+    <main>
+      <!-- SÖZLÜK -->
+      <section class="view active" id="view-search">
+        <div class="search-card">
+          <div class="search-row">
+            <div class="search-box">
+              <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+              <input id="searchInput" type="search" placeholder="Kelime yazın…  (مثال: کتاب)" autocomplete="off" spellcheck="false" dir="auto">
+              <button class="clear-btn" id="btnClear" type="button" aria-label="Temizle" hidden>×</button>
+            </div>
+            <button class="speak-btn" id="btnSpeakQuery" type="button" aria-label="Sorguyu seslendir" title="Seslendir">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18 6a8 8 0 0 1 0 12"/></svg>
+            </button>
+          </div>
+          <div class="dir-row" id="dirRow">
+            <button class="chip active" data-dir="auto" type="button">Otomatik</button>
+            <button class="chip" data-dir="fa-tr" type="button">Farsça → Türkçe</button>
+            <button class="chip" data-dir="tr-fa" type="button">Türkçe → Farsça</button>
+          </div>
+          <div class="filter-row">
+            <span class="muted small" id="resultInfo">Yazmaya başlayın</span>
+            <button class="link-btn" id="btnImport" type="button">＋ Kelime ekle / içe aktar</button>
+          </div>
+        </div>
+        <div id="results" class="results" aria-live="polite"></div>
+      </section>
+
+      <!-- FAVORİLER -->
+      <section class="view" id="view-favorites">
+        <div class="panel-head">
+          <h2>Kaydettiğin kelimeler</h2>
+          <button class="link-btn" id="btnExportFav" type="button">JSON indir</button>
+        </div>
+        <div id="favList" class="results"></div>
+      </section>
+
+      <!-- GEÇMİŞ -->
+      <section class="view" id="view-history">
+        <div class="panel-head">
+          <h2>Son aramalar</h2>
+          <button class="link-btn" id="btnClearHistory" type="button">Temizle</button>
+        </div>
+        <div id="historyList" class="history-list"></div>
+      </section>
+
+      <!-- QUIZ -->
+      <section class="view" id="view-quiz">
+        <div class="quiz-card" id="quizCard">
+          <div class="quiz-top">
+            <span id="quizProgress" class="muted small">Hazır</span>
+            <button class="link-btn" id="btnNewQuiz" type="button">Yeni quiz</button>
+          </div>
+          <div id="quizBody">
+            <p class="quiz-hint">Rastgele 10 kelime ile kendini sına.</p>
+            <div class="quiz-dirs">
+              <button class="chip active" data-quiz-dir="fa-tr" type="button">Farsça → Türkçe</button>
+              <button class="chip" data-quiz-dir="tr-fa" type="button">Türkçe → Farsça</button>
+            </div>
+            <button class="primary-btn" id="btnStartQuiz" type="button">Başla</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="bottombar">
+      <span id="footerCount">— kelime</span>
+      <span class="dot">·</span>
+      <span>İnternet gerekmez</span>
+    </footer>
+  </div>
+
+  <!-- AYARLAR -->
+  <div class="sheet" id="settingsSheet" hidden>
+    <div class="sheet-backdrop" data-close="settingsSheet"></div>
+    <div class="sheet-panel">
+      <div class="sheet-head">
+        <h2>Ayarlar</h2>
+        <button class="icon-btn" type="button" data-close="settingsSheet" aria-label="Kapat">×</button>
+      </div>
+      <div class="sheet-body">
+        <label class="field">
+          <span>Uygulama adı</span>
+          <input id="setAppName" type="text" maxlength="40" placeholder="Farsça Türkçe Sözlük">
+        </label>
+        <label class="field">
+          <span>Alt başlık</span>
+          <input id="setSubtitle" type="text" maxlength="60" placeholder="Senin sözlüğün">
+        </label>
+        <div class="field">
+          <span>Tema</span>
+          <div class="segmented" id="setTheme">
+            <button data-value="system" type="button">Sistem</button>
+            <button data-value="light" type="button">Açık</button>
+            <button data-value="dark" type="button">Koyu</button>
+          </div>
+        </div>
+        <div class="field">
+          <span>Vurgu rengi</span>
+          <div class="swatches" id="setColor">
+            <button data-value="#0d5c63" type="button" style="--sw:#0d5c63" aria-label="Teal"></button>
+            <button data-value="#7a3e9d" type="button" style="--sw:#7a3e9d" aria-label="Mor"></button>
+            <button data-value="#b1462b" type="button" style="--sw:#b1462b" aria-label="Kiremit"></button>
+            <button data-value="#1c6b3c" type="button" style="--sw:#1c6b3c" aria-label="Yeşil"></button>
+            <button data-value="#1d4e89" type="button" style="--sw:#1d4e89" aria-label="Lacivert"></button>
+          </div>
+        </div>
+        <div class="field">
+          <span>Yazı boyutu</span>
+          <div class="segmented" id="setFont">
+            <button data-value="small" type="button">Küçük</button>
+            <button data-value="medium" type="button">Orta</button>
+            <button data-value="large" type="button">Büyük</button>
+          </div>
+        </div>
+        <label class="switch-row">
+          <span><b>Telaffuzu göster</b><small>Kelime kartlarında Latin harfli okunuş</small></span>
+          <input id="setPron" type="checkbox">
+        </label>
+        <label class="switch-row">
+          <span><b>Örnek cümleleri göster</b><small>Var olan örnekleri kartta göster</small></span>
+          <input id="setExamples" type="checkbox">
+        </label>
+        <label class="switch-row">
+          <span><b>Sadece benim kelimelerim</b><small>Gömülü sözlüğü gizle, içe aktardıklarını kullan</small></span>
+          <input id="setOnlyCustom" type="checkbox">
+        </label>
+      </div>
+      <div class="sheet-foot">
+        <button class="ghost-btn" id="btnResetData" type="button">Verileri sıfırla</button>
+        <button class="primary-btn" type="button" data-close="settingsSheet">Tamam</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- İÇE AKTARMA -->
+  <div class="sheet" id="importSheet" hidden>
+    <div class="sheet-backdrop" data-close="importSheet"></div>
+    <div class="sheet-panel">
+      <div class="sheet-head">
+        <h2>Kendi sözlüğünü ekle</h2>
+        <button class="icon-btn" type="button" data-close="importSheet" aria-label="Kapat">×</button>
+      </div>
+      <div class="sheet-body">
+        <p class="muted small">JSON veya CSV dosyası seç. Aynı kelime varsa senin versiyonun geçerli olur. Veriler yalnızca bu cihazda saklanır.</p>
+        <label class="upload" for="fileInput">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0L7 9m5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
+          <span>Dosya seç veya buraya bırak</span>
+          <small>.json · .csv · .txt</small>
+        </label>
+        <input id="fileInput" type="file" accept=".json,.csv,.txt,application/json,text/csv,text/plain" hidden>
+        <label class="field">
+          <span>Ya da doğrudan yapıştır</span>
+          <textarea id="pasteArea" rows="7" spellcheck="false" placeholder='[{"fa":"کتاب","tr":"kitap"}]&#10;veya&#10;fa,tr,pron&#10;کتاب,kitap,ketab'></textarea>
+        </label>
+        <button class="primary-btn full" id="btnPasteImport" type="button">İçe aktar</button>
+        <p class="muted small" id="importMsg" role="status"></p>
+        <div class="format-help">
+          <b>CSV başlıkları:</b> fa, tr, pron, pos, cat, exFa, exTr<br>
+          <b>JSON örnek:</b> <code>[{"fa":"کتاب","tr":"kitap","pron":"ketab"}]</code>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="dictionary.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
