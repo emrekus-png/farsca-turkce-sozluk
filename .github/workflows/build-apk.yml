@@ -42,15 +42,46 @@ jobs:
           if [ ! -d android ]; then npx cap add android; fi
           npx cap sync android
 
+      - name: Sürüm ve imza ayarlarını uygula
+        run: |
+          VC=$(grep '^versionCode=' version.properties | cut -d= -f2)
+          VN=$(grep '^versionName=' version.properties | cut -d= -f2)
+          sed -i "s/versionCode 1/versionCode $VC/" android/app/build.gradle
+          sed -i "s/versionName \"1.0\"/versionName \"$VN\"/" android/app/build.gradle
+          cat >> android/app/build.gradle <<'EOF'
+
+          android {
+              signingConfigs {
+                  release {
+                      storeFile file('../../keystore/release.p12')
+                      storeType 'PKCS12'
+                      storePassword 'sozluk2026'
+                      keyAlias 'sozlukkey'
+                      keyPassword 'sozluk2026'
+                  }
+              }
+              buildTypes {
+                  release {
+                      signingConfig signingConfigs.release
+                  }
+              }
+          }
+          EOF
+
       - name: APK derle
         working-directory: android
         run: |
           chmod +x ./gradlew
-          ./gradlew assembleDebug --no-daemon
+          ./gradlew assembleRelease --no-daemon
+
+      - name: İmzayı doğrula
+        run: |
+          SDK=${ANDROID_SDK_ROOT:-$ANDROID_HOME}
+          "$SDK/build-tools/34.0.0/apksigner" verify --print-certs android/app/build/outputs/apk/release/app-release.apk
 
       - name: APK'yı yükle
         uses: actions/upload-artifact@v6
         with:
           name: farsca-turkce-sozluk-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: android/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error

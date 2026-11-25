@@ -37,9 +37,19 @@ Bu ortamda Android SDK olmadığı için derlemeyi GitHub Actions yapar.
 
 3. GitHub'da **Actions** sekmesini aç → solda **Build APK** iş akışını seç → **Run workflow** (push ile otomatik de başlar).
 4. İş bitince en üstteki çalıştırmaya gir → **Artifacts** → `farsca-turkce-sozluk-apk` dosyasını indir.
-5. ZIP'ten `app-debug.apk` çık, telefonuna gönder ve kur. Android "Bilinmeyen kaynaklardan yükleme" iznini isteyebilir.
+5. ZIP'ten `app-release.apk` çık, telefonuna gönder ve kur. Android "Bilinmeyen kaynaklardan yükleme" iznini isteyebilir.
 
 > İpucu: Repo'yu **private** yaparsan Actions dakika kotası uygulanabilir; public repo ücretsizdir.
+
+### Güncelleme gönderme (telefondan silmeden)
+
+APK artık **`keystore/release.p12`** anahtarıyla imzalanır ve sürüm numarası **`version.properties`** dosyasından alınır. Bu sayede aynı paket adı (`com.sozluk.farsca.turkce`) korunur.
+
+1. Bir değişiklik yapınca `version.properties` dosyasındaki `versionCode` değerini **1 artır** (örn. `2` → `3`), istersen `versionName`'i de güncelle.
+2. Commit + push et; Actions yeni `app-release.apk`'yı üretir.
+3. Kullanıcılar yeni APK'yi indirip **üzerine kur** — uygulamayı silmeleri gerekmez.
+
+⚠️ **Bir kez istisna:** Eski APK'lar her derlemede farklı anahtarla imzalanıyordu. Bu yeni imzaya geçerken kullanıcıların eski uygulamayı **bir kez** silmesi gerekir. Sonrasında güncellemeler sorunsuz üzerine kurulur. Silmeden önce **Ayarlar → Kelimelerimi yedekle (JSON indir)** ile eklenen kelimeleri kaydedip yeni sürümde **Toplu kelime ekle** ekranından geri yükleyebilirler. `keystore/release.p12` dosyasını ve şifresini değiştirme; değiştirirsen imza bozulur ve herkesin tekrar silip kurması gerekir.
 
 ## 3) Sözlüğü kendine göre özelleştirme
 
@@ -119,4 +129,4 @@ fa-tr-sozluk/
 ## Bilinen notlar
 
 - Seslendirme özelliği kaldırıldı; telaffuz yazı olarak gösterilir.
-- `app-debug.apk` kurulabilir bir derlemedir; Play Store için signed release gerekir.
+- `app-release.apk` kendi anahtarımızla imzalı, kurulabilir bir derlemedir; Play Store için ayrı kayıt gerekir.

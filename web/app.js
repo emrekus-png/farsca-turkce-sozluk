@@ -834,6 +834,13 @@
       renderFavorites();
     });
 
+    $('#btnExportCustom').addEventListener('click', () => {
+      if (!custom.length) { toast('Yedeklenecek kelime yok'); return; }
+      const list = custom.map(({ id, fa, tr, pron, pos, cat, exFa, exTr }) => ({ id, fa, tr, pron, pos, cat, exFa, exTr }));
+      download('kelimelerim.json', JSON.stringify(list, null, 2));
+      toast('Kelime yedeği indirildi');
+    });
+
     $('#btnClearCustom').addEventListener('click', () => {
       if (!confirm('Eklediğin tüm kelimeler silinecek. Favoriler ve geçmiş korunacak. Emin misin?')) return;
       custom = [];
