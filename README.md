@@ -69,13 +69,13 @@ GitHub'a push ettiğinde bu adım otomatik çalışır.
 
 ### Telefondan toplu text dosyası (sadece sen)
 
-1. Kitaptan kelimeleri bir `.txt` dosyasına **her satıra bir kelime** olacak şekilde yaz:
+1. Kitaptan kelimeleri bir `.txt` dosyasına **her satıra bir kelime** olacak şekilde yaz. **Sıra: Farsça - Türkçe - Telaffuz** (telaffuz isteğe bağlı):
    ```
-   کتاب - kitap
-   دوست - arkadaş
-   خانه - ev
+   کتاب - kitap - ketab
+   دوست - arkadaş - dost
+   خانه - ev - xane
    ```
-   İsteğe bağlı telaffuz için: `کتاب - kitap - ketab`
+   Yanlış sıra (`کتاب - ketab - kitap`) telaffuz ile anlamı yer değiştirir. Uygulama, gömülü sözlükten bildiği kelimelerde sıra hatasını otomatik düzeltmeye çalışır; yine de doğru sırayı kullan.
 2. Uygulamada üstteki **başlığa basılı tut** (yaklaşık 1 saniye) → PIN gir (varsayılan: `1234`).
 3. Açılan **Toplu kelime ekle** ekranından dosyayı seç veya satırları yapıştır → **Toplu içe aktar**.
 4. **Her satır aramada ayrı bir kelime kartı olarak çıkar.** “Toplu ekle” bağlantısı ve giriş, yönetici olmadan görünmez.

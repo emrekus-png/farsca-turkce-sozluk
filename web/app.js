@@ -177,6 +177,12 @@
         if (d <= Math.max(1, Math.floor(q.length / 3))) best = Math.max(best, 30 - d * 6);
       }
     }
+    // Sırası bozuk eski içe aktarımlarda Farsça kelime "tr" veya "pron" alanına
+    // düşmüş olabilir; yine de bulunabilsin.
+    if (!best && q.length >= 2) {
+      const extra = dir === 'fa-tr' ? [e.ntr, e.npron] : dir === 'tr-fa' ? [e.nfa, e.npron] : [e.ntr, e.npron];
+      if (extra.some((t) => t && (t === q || t.includes(q)))) best = 40;
+    }
     return best;
   }
 
@@ -519,9 +525,53 @@
     });
   }
 
+  let lastImportSkipped = 0;
+
+  function trHints() {
+    const map = new Map();
+    pool.forEach((e) => {
+      if (!e.nfa || !e.ntr) return;
+      if (!map.has(e.nfa)) map.set(e.nfa, new Set());
+      map.get(e.nfa).add(e.ntr);
+    });
+    return map;
+  }
+
+  // "Farsça - Türkçe - Telaffuz" sırası bozulmuş satırları kurtarmaya çalışır.
+  function dashParts(s, hints) {
+    const parts = s.split(' - ').map((x) => x.trim()).filter(Boolean);
+    if (!parts.length) return null;
+    const a = parts[0] || '';
+    const b = parts[1] || '';
+    const c = parts[2] || '';
+    const o = {};
+    if (FA_RE.test(b) && !FA_RE.test(a)) {
+      // Farsça ikinci alan: "anlam - فارسça - telaffuz"
+      o.fa = b;
+      const known = hints.get(normFa(b));
+      if (known && known.has(normTr(c)) && !known.has(normTr(a))) { o.tr = c; o.pron = a; }
+      else { o.tr = a; o.pron = c; }
+    } else {
+      o.fa = a;
+      if (parts.length >= 3) {
+        const known = hints.get(normFa(a));
+        // "فارسça - telaffuz - anlam" yazılmışsa anlamı yerine koy
+        if (known && known.has(normTr(c)) && !known.has(normTr(b))) { o.tr = c; o.pron = b; }
+        else { o.tr = b; o.pron = c; }
+      } else {
+        o.tr = b;
+        if (c) o.pron = c;
+      }
+    }
+    if (parts[3]) o.pos = parts[3];
+    return o;
+  }
+
   function parseImport(text) {
     const t = String(text || '').trim();
+    lastImportSkipped = 0;
     if (!t) return [];
+    const rawLines = t.split(/\r?\n/).filter((x) => x.trim()).length;
     let items;
     if (t[0] === '[' || t[0] === '{') {
       const json = JSON.parse(t);
@@ -529,6 +579,7 @@
     } else {
       items = [];
       let csvLines = [];
+      const hints = trHints();
       const keys = ['fa', 'tr', 'pron', 'pos', 'cat', 'exFa', 'exTr'];
       const flushCsv = () => {
         if (csvLines.length) items = items.concat(csvBlockToItems(csvLines));
@@ -538,11 +589,10 @@
         const s = line.trim();
         if (!s) return;
         if (s.includes(' - ') && !s.includes(',')) {
-          // Her satır ayrı bir kelime: "کتاب - kitap" veya "کتاب - kitap - ketab"
+          // Her satır ayrı bir kelime: "کتاب - kitap - ketab"
           flushCsv();
-          const o = {};
-          s.split(' - ').forEach((cell, i) => { if (keys[i]) o[keys[i]] = cell.trim(); });
-          items.push(o);
+          const o = dashParts(s, hints);
+          if (o) items.push(o);
         } else if (s.includes('|')) {
           flushCsv();
           const o = {};
@@ -555,7 +605,9 @@
       flushCsv();
     }
     // Her satır kendi kimliğiyle ayrı bir kelime olur; aramada tek tek çıkar.
-    return items.map(normalizeImported).filter(Boolean).map(prepare);
+    const prepared = items.map(normalizeImported).filter(Boolean).map(prepare);
+    if (t[0] !== '[' && t[0] !== '{') lastImportSkipped = Math.max(0, rawLines - prepared.length);
+    return prepared;
   }
 
   function saveCustom() {
@@ -588,7 +640,8 @@
       return;
     }
     upsert(items);
-    $('#importMsg').textContent = items.length + ' satır = ' + items.length + ' ayrı kelime eklendi/güncellendi. Toplam: ' + pool.length;
+    const skipped = lastImportSkipped ? ' · ' + lastImportSkipped + ' satır atlandı (Farsça veya Türkçe eksik)' : '';
+    $('#importMsg').textContent = items.length + ' satır = ' + items.length + ' ayrı kelime eklendi/güncellendi. Toplam: ' + pool.length + skipped;
     $('#pasteArea').value = '';
     toast(items.length + ' kelime eklendi');
   }
@@ -727,16 +780,30 @@
 
     const input = $('#searchInput');
     let timer;
-    input.addEventListener('input', () => {
+    let inputWatch = null;
+    let lastSeen = input.value;
+    const scheduleRender = () => {
       $('#btnClear').hidden = !input.value;
       clearTimeout(timer);
-      timer = setTimeout(renderResults, 110);
+      timer = setTimeout(() => { lastSeen = input.value; renderResults(); }, 60);
+    };
+    input.addEventListener('input', scheduleRender);
+    // Bazı Android klavyeleri Farsça yazarken 'input' olayını geciktirir;
+    // bu yüzden tuş, birleştirme (composition) ve odak sırasında da kontrol ediyoruz.
+    ['keyup', 'compositionupdate', 'paste', 'cut', 'change'].forEach((ev) => input.addEventListener(ev, scheduleRender));
+    input.addEventListener('focus', () => {
+      clearInterval(inputWatch);
+      inputWatch = setInterval(() => {
+        if (input.value !== lastSeen) { lastSeen = input.value; scheduleRender(); }
+      }, 120);
     });
+    input.addEventListener('blur', () => { clearInterval(inputWatch); inputWatch = null; });
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') addToHistory(input.value);
     });
     $('#btnClear').addEventListener('click', () => {
       input.value = '';
+      lastSeen = '';
       $('#btnClear').hidden = true;
       renderResults();
       input.focus();

@@ -215,7 +215,7 @@
         <button class="icon-btn" type="button" data-close="importSheet" aria-label="Kapat">×</button>
       </div>
       <div class="sheet-body">
-        <p class="muted small">Text dosyasına <b>her satıra bir kelime</b> yaz: <code>کتاب - kitap</code>. Her satır aramada ayrı bir kelime olarak çıkar. JSON/CSV de olur.</p>
+        <p class="muted small"><b>Sıra çok önemli:</b> 1) Farsça <code>-</code> 2) Türkçe <code>-</code> 3) Telaffuz (isteğe bağlı).<br><b>Doğru:</b> <code>کتاب - kitap - ketab</code> &nbsp; <b>Yanlış:</b> <code>کتاب - ketab - kitap</code></p>
         <label class="upload" for="fileInput">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0L7 9m5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
           <span>Text dosyasını seç veya buraya bırak</span>
@@ -223,16 +223,17 @@
         </label>
         <input id="fileInput" type="file" accept=".json,.csv,.txt,application/json,text/csv,text/plain" hidden>
         <label class="field">
-          <span>Ya da doğrudan yapıştır (her satır bir kelime)</span>
-          <textarea id="pasteArea" rows="7" spellcheck="false" placeholder='کتاب - kitap&#10;دوست - arkadaş&#10;خانه - ev&#10;veya JSON / CSV'></textarea>
+          <span>Ya da doğrudan yapıştır (Farsça - Türkçe - Telaffuz)</span>
+          <textarea id="pasteArea" rows="7" spellcheck="false" placeholder='کتاب - kitap - ketab&#10;دوست - arkadaş - dost&#10;خانه - ev - xane&#10;veya JSON / CSV'></textarea>
         </label>
         <button class="primary-btn full" id="btnPasteImport" type="button">Toplu içe aktar</button>
         <p class="muted small" id="importMsg" role="status"></p>
         <div class="format-help">
-          <b>Text örnek:</b> <code>کتاب - kitap</code> (her satır ayrı kelime)<br>
-          <b>İsteğe bağlı:</b> <code>کتاب - kitap - ketab</code> (telaffuz)<br>
-          <b>CSV başlıkları:</b> fa, tr, pron, pos, cat, exFa, exTr<br>
-          <b>JSON:</b> <code>[{"fa":"کتاب","tr":"kitap"}]</code>
+          <b>Text sırası:</b> <code>Farsça - Türkçe - Telaffuz</code><br>
+          <b>Örnek:</b> <code>کتاب - kitap - ketab</code><br>
+          <b>CSV sırası:</b> <code>fa,tr,pron</code> (ilk satır başlık olabilir)<br>
+          <b>JSON:</b> <code>[{"fa":"کتاب","tr":"kitap","pron":"ketab"}]</code><br>
+          Her satır aramada ayrı bir kelime olur. Sırayı karıştırırsan telaffuz ile anlam yer değiştirir.
         </div>
       </div>
     </div>
