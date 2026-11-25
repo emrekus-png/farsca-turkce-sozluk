@@ -5,6 +5,9 @@ on:
   push:
     branches: [main, master]
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -85,3 +88,15 @@ jobs:
           name: farsca-turkce-sozluk-apk
           path: android/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
+
+      - name: Kalıcı indirme linki (GitHub Release)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VN=$(grep '^versionName=' version.properties | cut -d= -f2)
+          APK=android/app/build/outputs/apk/release/app-release.apk
+          if gh release view "v$VN" >/dev/null 2>&1; then
+            gh release upload "v$VN" "$APK" --clobber
+          else
+            gh release create "v$VN" "$APK" --title "Farsça Türkçe Sözlük v$VN" --generate-notes
+          fi
