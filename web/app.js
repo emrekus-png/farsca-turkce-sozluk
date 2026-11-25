@@ -834,6 +834,18 @@
       renderFavorites();
     });
 
+    $('#btnClearCustom').addEventListener('click', () => {
+      if (!confirm('Eklediğin tüm kelimeler silinecek. Favoriler ve geçmiş korunacak. Emin misin?')) return;
+      custom = [];
+      save(KEYS.custom, []);
+      refreshPool();
+      favorites = favorites.filter((id) => pool.some((e) => e.id === id));
+      save(KEYS.favs, favorites);
+      renderResults();
+      renderFavorites();
+      toast('Eklenen kelimeler silindi');
+    });
+
     $('#btnResetData').addEventListener('click', () => {
       if (!confirm('Favoriler, geçmiş, eklediğin kelimeler ve ayarlar silinecek. Emin misin?')) return;
       Object.values(KEYS).forEach((k) => { try { localStorage.removeItem(k); } catch (e) {} });
