@@ -8,6 +8,7 @@
 - Telaffuz: Farsça kelimenin yanında küçük, soluk Latin harfli okunuş; isteğe bağlı örnek cümleler
 - Favoriler, arama geçmişi, kelime kopyalama, 10 soruluk quiz
 - Tek tek kelime ekleme herkese açık; toplu text dosyası yönetici PIN'iyle korunur
+- Fiil kartlarındaki **çekim** düğmesiyle 5 örnek çekim: Farsça + Latin okunuş + Türkçe karşılık
 - Uygulama adı, alt başlık, tema, renk, yazı boyutu ayarları
 - Tamamen çevrimdışı; veriler yalnızca cihazında saklanır
 
@@ -96,6 +97,20 @@ fa,tr,pron,pos,cat
 کتاب,kitap,ketab,isim,eğitim
 دوست,arkadaş,dost,isim,duygu
 ```
+
+### Fiil çekimleri
+
+Gömülü fiillerin ve sonradan eklediğin fiillerin kartında **çekim** düğmesi görünür. Düğmeye dokununca ayrı ekranda 5 çekim açılır:
+
+1. Olumlu şimdiki zaman (`من می خورم`)
+2. Olumsuz şimdiki zaman (`من نمی خورم`)
+3. Geçmiş zaman (`من خوردم`)
+4. Gelecek zaman (`من خواهم خورد`)
+5. Emir (`بخور · بخورید`) — sadece **sen** ve **siz**
+
+Kurallar: `می` / `نمی` fiilden ayrı yazılır; bileşik fiillerde yardımcı fiilden önce gelir (`کار می کنم`, `کار خواهم کرد`). Şimdiki zaman ve emirde şimdiki kök (`گیرم`), geçmiş/gelecekte geçmiş kök (`گرفتم`) kullanılır. `هست/است` için `می`/`نمی` eklenmez; olumsuzu `نیست`tir.
+
+Yeni eklediğin bir kelimenin fiil sayılması için **Tür: fiil** yazman yeterlidir; ya da Farsça `-ن` ile, Türkçe `mak/mek` ile bitmesi de yeterli sayılır. Düzensiz fiillerin kökleri `data/conjugations.json` dosyasındadır; bilinmeyen fiillerde okunuş ve Türkçe karşılık kural ile yaklaşık üretilir.
 
 ## 4) Uygulama kimliğini değiştirme
 

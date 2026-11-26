@@ -260,6 +260,20 @@ main { flex: 1; padding: 0 16px 16px; }
 .format-help { font-size: .74rem; color: var(--muted); line-height: 1.7; background: var(--surface-2); border-radius: 10px; padding: 10px 12px; }
 .format-help code { word-break: break-all; }
 
+/* ---------- Fiil çekimleri ---------- */
+.mini-btn.conj-btn { width: auto; padding: 0 10px; display: inline-flex; gap: 5px; font-size: .72rem; font-weight: 700; color: var(--accent); }
+.conj-head { display: grid; gap: 3px; padding-bottom: 2px; }
+.conj-head .fa { direction: rtl; text-align: right; font-family: "Noto Naskh Arabic", "Amiri", serif; font-size: 1.5rem; font-weight: 600; }
+.conj-head .pron { color: var(--muted); font-size: .78rem; font-style: normal; }
+.conj-head .tr { font-weight: 650; }
+.conj-list { display: grid; gap: 10px; }
+.conj-card { border: 1px solid var(--border); border-radius: 12px; padding: 11px 13px; background: var(--surface-2); }
+.conj-label { font-size: .72rem; font-weight: 700; color: var(--accent); margin-bottom: 6px; }
+.conj-fa { direction: rtl; text-align: right; font-family: "Noto Naskh Arabic", "Amiri", "Scheherazade New", serif; font-size: 1.16rem; line-height: 1.5; }
+.conj-pron { color: var(--muted); font-size: .76rem; font-style: normal; margin-top: 2px; }
+.conj-tr { font-size: .9rem; font-weight: 600; margin-top: 4px; }
+.conj-note { font-size: .72rem; color: var(--muted); line-height: 1.6; }
+
 /* ---------- Toast ---------- */
 .toast {
   position: fixed; left: 50%; bottom: calc(24px + var(--safe-bottom)); transform: translate(-50%, 20px);

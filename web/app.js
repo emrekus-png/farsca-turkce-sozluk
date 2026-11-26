@@ -126,6 +126,216 @@
     return e;
   }
 
+  /* ============================== Fiil çekimleri ============================== */
+
+  const CONJ = window.CONJUGATIONS || {};
+  const C_STEMS = CONJ.stems || {};
+  const C_TR = CONJ.trOverride || {};
+  const C_ALIAS = CONJ.aliases || {};
+  const C_TR_ALIAS = CONJ.trAlias || {};
+  const C_COPULA = CONJ.copula || { keys: [], rows: [] };
+  const COP_KEYS = new Set((C_COPULA.keys || []).map(normFa));
+  const POS_PARTICLE = (CONJ.particles && CONJ.particles.pos) || 'می';
+  const NEG_PARTICLE = (CONJ.particles && CONJ.particles.neg) || 'نمی';
+  const WANT = ((CONJ.particles && CONJ.particles.want) || ['خواهم'])[0];
+
+  const CONJ_LABELS = [
+    'Şimdiki zaman (olumlu)',
+    'Şimdiki zaman (olumsuz)',
+    'Geçmiş zaman',
+    'Gelecek zaman',
+    'Emir',
+  ];
+
+  // Fiil: Tür "fiil" ise ya da Farsça mastar (-n) + Türkçe mastar (mak/mek) ise.
+  function isVerb(entry) {
+    if (!entry) return false;
+    const fa = normFa(entry.fa);
+    if (!fa) return false;
+    if (COP_KEYS.has(fa)) return true;
+    const word = fa.split(' ').pop();
+    const pos = normTr(entry.pos || '');
+    const tr = normTr(entry.tr || '');
+    return pos.indexOf('fiil') >= 0 || (/ن$/.test(word) && /(mak|mek)$/.test(tr));
+  }
+
+  function splitWord(text) {
+    const parts = String(text || '').trim().split(/\s+/).filter(Boolean);
+    return {
+      prefix: parts.length > 1 ? parts.slice(0, -1).join(' ') : '',
+      last: parts[parts.length - 1] || '',
+    };
+  }
+
+  function guessStems(verbFa, verbPron, compound) {
+    const past = verbFa.replace(/ن$/, '') || verbFa;
+    const now = /ید$/.test(past) ? past.slice(0, -2) : (/د$/.test(past) ? past.slice(0, -1) : past);
+    const pPast = String(verbPron || '').replace(/(an|en|ân)$/i, '');
+    const pNow = /id$/.test(pPast) ? pPast.slice(0, -2) : (/d$/.test(pPast) ? pPast.slice(0, -1) : pPast);
+    const vowelStart = /^[آا]/.test(now);
+    const imp = vowelStart ? 'بی' + now : 'ب' + now;
+    const pImp = vowelStart ? 'bi' + pNow : 'ba' + pNow;
+    return {
+      past, now, imp,
+      impPl: imp + 'ید',
+      cImp: now,
+      cImpPl: now + 'ید',
+      pPast, pNow,
+      p1: pNow + 'am',
+      p1Past: pPast + 'am',
+      pImp,
+      pImpPl: pImp + 'id',
+      pCImp: pNow,
+      pCImpPl: pNow + 'id',
+      compound,
+    };
+  }
+
+  function stemOf(verbFa, verbPron, compound) {
+    let key = normFa(verbFa);
+    if (C_ALIAS[key]) key = C_ALIAS[key];
+    if (COP_KEYS.has(key)) key = 'هست';
+    const known = C_STEMS[key];
+    if (known) return Object.assign({}, known, { compound });
+    return guessStems(verbFa, verbPron, compound);
+  }
+
+  function trVowel(s) {
+    const found = String(s || '').match(/[aeıiouöü]/gi);
+    return found ? found[found.length - 1].toLowerCase() : 'a';
+  }
+
+  function trHarmony(s, a, i, o, u) {
+    const v = trVowel(s);
+    if (v === 'a' || v === 'ı') return a;
+    if (v === 'e' || v === 'i') return i;
+    if (v === 'o' || v === 'u') return o;
+    return u;
+  }
+
+  // Tanınmayan Türkçe fiiller için yaklaşık çekim.
+  function guessTrForms(word) {
+    const stem = String(word || '').replace(/(mak|mek)$/, '') || String(word || '');
+    const vowelEnd = /[aeıiouöü]$/i.test(stem);
+    const lastChar = stem.slice(-1);
+    const voiceless = /[çfhkpsşt]/.test(lastChar);
+    const presSuf = vowelEnd ? 'yorum' : trHarmony(stem, 'ıyorum', 'iyorum', 'uyorum', 'üyorum');
+    const negSuf = trHarmony(stem, 'mıyorum', 'miyorum', 'muyorum', 'müyorum');
+    const pastSuf = (lastChar === 't' || voiceless ? 't' : 'd') + trHarmony(stem, 'ım', 'im', 'um', 'üm');
+    const futBase = lastChar === 't' ? stem.slice(0, -1) + 'd' : stem;
+    const futSuf = (vowelEnd ? 'y' : '') + trHarmony(stem, 'acağım', 'eceğim', 'acağım', 'eceğim');
+    const plSuf = (vowelEnd ? 'y' : '') + trHarmony(stem, 'ın', 'in', 'un', 'ün');
+    return {
+      pres: stem + presSuf,
+      neg: stem + negSuf,
+      past: stem + pastSuf,
+      fut: futBase + futSuf,
+      imp: stem,
+      impPl: stem + plSuf,
+    };
+  }
+
+  function trForms(rawTr) {
+    const first = String(rawTr || '').split(';')[0].replace(/\([^)]*\)/g, '').trim();
+    const clean = C_TR_ALIAS[normTr(first)] || first;
+    const split = splitWord(clean);
+    const whole = C_TR[normTr(clean)];
+    const forms = whole || C_TR[normTr(split.last)] || guessTrForms(split.last);
+    return { prefix: whole ? '' : split.prefix, forms };
+  }
+
+  function conjugate(entry) {
+    const faKey = normFa(entry.fa);
+    if (COP_KEYS.has(faKey)) {
+      return { title: entry.fa, rows: C_COPULA.rows || [] };
+    }
+
+    const faSplit = splitWord(entry.fa);
+    const pronSplit = splitWord(entry.pron);
+    const compound = !!faSplit.prefix;
+    const s = stemOf(faSplit.last, pronSplit.last, compound);
+    const tr = trForms(entry.tr);
+
+    const pfx = faSplit.prefix ? faSplit.prefix + ' ' : '';
+    const pfxPron = pronSplit.prefix ? pronSplit.prefix + ' ' : '';
+    const pfxTr = tr.prefix ? tr.prefix + ' ' : '';
+    const posPron = POS_PARTICLE === 'نمی' ? 'nemi' : 'mi';
+    const negPron = NEG_PARTICLE === 'نمی' ? 'nemi' : 'nemi';
+    const wantPron = WANT === 'خواهم' ? 'xâham ' : '';
+
+    const impFa = compound ? (s.cImp || s.imp) : s.imp;
+    const impPlFa = compound ? (s.cImpPl || s.impPl) : s.impPl;
+    const impPron = compound ? (s.pCImp || s.pImp) : s.pImp;
+    const impPlPron = compound ? (s.pCImpPl || s.pImpPl) : s.pImpPl;
+    const now1 = s.now + (/[واا]$/.test(s.now) ? 'ی' : '') + 'م';
+
+    return {
+      title: entry.fa,
+      rows: [
+        {
+          label: CONJ_LABELS[0],
+          fa: 'من ' + pfx + POS_PARTICLE + ' ' + now1,
+          pron: 'man ' + pfxPron + posPron + ' ' + s.p1,
+          tr: pfxTr + tr.forms.pres,
+        },
+        {
+          label: CONJ_LABELS[1],
+          fa: 'من ' + pfx + NEG_PARTICLE + ' ' + now1,
+          pron: 'man ' + pfxPron + negPron + ' ' + s.p1,
+          tr: pfxTr + tr.forms.neg,
+        },
+        {
+          label: CONJ_LABELS[2],
+          fa: 'من ' + pfx + s.past + 'م',
+          pron: 'man ' + pfxPron + s.p1Past,
+          tr: pfxTr + tr.forms.past,
+        },
+        {
+          label: CONJ_LABELS[3],
+          fa: 'من ' + pfx + WANT + ' ' + s.past,
+          pron: 'man ' + pfxPron + wantPron + s.pPast,
+          tr: pfxTr + tr.forms.fut,
+        },
+        {
+          label: CONJ_LABELS[4],
+          fa: pfx + impFa + ' · ' + pfx + impPlFa,
+          pron: pfxPron + impPron + ' · ' + pfxPron + impPlPron,
+          tr: pfxTr + tr.forms.imp + ' · ' + pfxTr + tr.forms.impPl,
+        },
+      ],
+    };
+  }
+
+  function openConj(entry) {
+    const data = conjugate(entry);
+    $('#conjTitle').textContent = entry.fa;
+    const body = $('#conjBody');
+    body.innerHTML = '';
+
+    const head = el('div', 'conj-head');
+    const fa = el('div', 'fa', entry.fa);
+    fa.setAttribute('dir', 'rtl');
+    head.appendChild(fa);
+    if (entry.pron) head.appendChild(el('div', 'pron', entry.pron));
+    head.appendChild(el('div', 'tr', entry.tr));
+    body.appendChild(head);
+
+    const list = el('div', 'conj-list');
+    data.rows.forEach((r) => {
+      const cardEl = el('div', 'conj-card');
+      cardEl.appendChild(el('div', 'conj-label', r.label));
+      const rfa = el('div', 'conj-fa', r.fa);
+      rfa.setAttribute('dir', 'rtl');
+      cardEl.appendChild(rfa);
+      if (r.pron) cardEl.appendChild(el('div', 'conj-pron', r.pron));
+      cardEl.appendChild(el('div', 'conj-tr', r.tr));
+      list.appendChild(cardEl);
+    });
+    body.appendChild(list);
+    body.appendChild(el('div', 'conj-note', 'می و نمی fiilden ayrı yazılır; emir sadece sen ve siz içindir.'));
+    openSheet('conjSheet');
+  }
+
   function buildPool() {
     const seed = (window.SEED_DICTIONARY || []).map((x) => Object.assign({}, x, { custom: false }));
     const customPrepared = custom.map((x) => Object.assign({}, x, { custom: true }));
@@ -293,6 +503,16 @@
       copyText(entry.fa + ' — ' + entry.tr);
     });
 
+    if (isVerb(entry)) {
+      const conjBtn = el('button', 'mini-btn conj-btn', 'çekim');
+      conjBtn.type = 'button';
+      conjBtn.title = 'Fiil çekimleri';
+      conjBtn.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        openConj(entry);
+      });
+      actions.appendChild(conjBtn);
+    }
     actions.append(favBtn, copyBtn);
     head.append(main, actions);
     wrap.appendChild(head);
@@ -817,7 +1037,7 @@
     $('#btnSettings').addEventListener('click', () => { syncSettingsUI(); openSheet('settingsSheet'); });
     $$('[data-close]').forEach((b) => b.addEventListener('click', () => closeSheet(b.dataset.close)));
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') { closeSheet('settingsSheet'); closeSheet('addSheet'); closeSheet('importSheet'); closeSheet('adminSheet'); }
+      if (e.key === 'Escape') { closeSheet('settingsSheet'); closeSheet('addSheet'); closeSheet('importSheet'); closeSheet('adminSheet'); closeSheet('conjSheet'); }
     });
 
     $('#setAppName').addEventListener('change', (e) => { settings.appName = e.target.value; commitSettings(); });

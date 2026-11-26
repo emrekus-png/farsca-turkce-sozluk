@@ -6,6 +6,8 @@ const path = require('path');
 const root = path.resolve(__dirname, '..');
 const src = path.join(root, 'data', 'dictionary.json');
 const dest = path.join(root, 'web', 'dictionary.js');
+const conjSrc = path.join(root, 'data', 'conjugations.json');
+const conjDest = path.join(root, 'web', 'conjugations.js');
 
 const data = JSON.parse(fs.readFileSync(src, 'utf8'));
 const ids = new Set();
@@ -35,3 +37,12 @@ const banner = [
 fs.mkdirSync(path.dirname(dest), { recursive: true });
 fs.writeFileSync(dest, `${banner}window.SEED_DICTIONARY = ${JSON.stringify(clean)};\n`, 'utf8');
 console.log(`OK: ${clean.length} kelime -> ${path.relative(root, dest)}`);
+
+const conj = JSON.parse(fs.readFileSync(conjSrc, 'utf8'));
+const conjBanner = [
+  '// BU DOSYA OTOMATİK ÜRETİLMİŞTİR — düzenlemeyin.',
+  '// Kaynak: data/conjugations.json  (sonra: node scripts/embed-dictionary.js)',
+  '',
+].join('\n');
+fs.writeFileSync(conjDest, `${conjBanner}window.CONJUGATIONS = ${JSON.stringify(conj)};\n`, 'utf8');
+console.log(`OK: çekim verisi -> ${path.relative(root, conjDest)}`);
