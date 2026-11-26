@@ -100,7 +100,7 @@ fa,tr,pron,pos,cat
 
 ### Fiil çekimleri
 
-Gömülü fiillerin ve sonradan eklediğin fiillerin **Farsça kelimesinin hemen altında** altı nokta görünür. Noktalara dokununca ayrı ekranda **Geçmiş / Şimdi / Gelecek / Emir** sekmeleri açılır; her sekmede ben, sen, o, biz, siz, onlar için Farsça + Latin okunuş + Türkçe karşılık gösterilir. Yalnızca olumlu çekimler gösterilir; Emir sekmesinde sadece **sen** ve **siz** satırları vardır.
+Gömülü fiillerin ve sonradan eklediğin fiillerin kartında, yıldız ve kopya ikonlarının **başında** bir çekim ikonu görünür. Bu ikona dokununca ayrı ekranda **Geçmiş / Şimdi / Gelecek / Emir** sekmeleri açılır; her sekmede ben, sen, o, biz, siz, onlar için Farsça + Latin okunuş + Türkçe karşılık gösterilir. Farsça/Latin sola, Türkçe en sağa hizalanır. Yalnızca olumlu çekimler gösterilir; Emir sekmesinde sadece **sen** ve **siz** satırları vardır.
 
 Kurallar: `می` fiilden ayrı yazılır; bileşik fiillerde yardımcı fiilden önce gelir (`کار می کنم`, `کار خواهم کرد`). Şimdiki zaman ve emirde şimdiki kök (`گیرم`), geçmiş/gelecekte geçmiş kök (`گرفتم`) kullanılır. `هست/است` için `می` eklenmez. Bileşik emirde önek korunur: `ادامه بده`, `ادامه بدهید`.
 

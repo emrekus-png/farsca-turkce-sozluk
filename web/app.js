@@ -504,6 +504,7 @@
   /* ============================== Arayüz yardımcıları ============================== */
 
   const ICONS = {
+    conj: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1.2" fill="currentColor" stroke="none"/><circle cx="4.5" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="4.5" cy="18" r="1.2" fill="currentColor" stroke="none"/></svg>',
     star: '<svg viewBox="0 0 24 24"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3 6.4 20.2l1.1-6.2L3 9.6l6.2-.9L12 3Z"/></svg>',
     copy: '<svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>',
   };
@@ -552,25 +553,9 @@
     const main = el('div', 'card-main');
 
     const line = el('div', 'word-line');
-    const faWrap = el('span', 'word-fa-wrap');
     const fa = el('span', 'word-fa', entry.fa);
     fa.setAttribute('dir', 'rtl');
-    faWrap.appendChild(fa);
-
-    if (isVerb(entry)) {
-      const dots = el('button', 'conj-dots');
-      dots.type = 'button';
-      dots.title = 'Fiil çekimlerini aç';
-      dots.setAttribute('aria-label', 'Fiil çekimlerini aç');
-      for (let i = 0; i < 6; i++) dots.appendChild(el('span', 'conj-dot'));
-      dots.addEventListener('click', (ev) => {
-        ev.stopPropagation();
-        openConj(entry);
-      });
-      faWrap.appendChild(dots);
-    }
-
-    line.appendChild(faWrap);
+    line.appendChild(fa);
     if (entry.pron) line.appendChild(el('span', 'word-pron', entry.pron));
     main.appendChild(line);
     main.appendChild(el('div', 'word-tr', entry.tr));
@@ -593,6 +578,20 @@
     }
 
     const actions = el('div', 'card-actions');
+
+    if (isVerb(entry)) {
+      const conjBtn = el('button', 'mini-btn');
+      conjBtn.type = 'button';
+      conjBtn.title = 'Fiil çekimlerini aç';
+      conjBtn.setAttribute('aria-label', 'Fiil çekimlerini aç');
+      conjBtn.innerHTML = ICONS.conj;
+      conjBtn.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        openConj(entry);
+      });
+      actions.appendChild(conjBtn);
+    }
+
     const favBtn = el('button', 'mini-btn' + (favorites.includes(entry.id) ? ' active' : ''));
     favBtn.type = 'button';
     favBtn.title = 'Favorilere ekle/çıkar';
