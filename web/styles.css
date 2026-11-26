@@ -261,18 +261,45 @@ main { flex: 1; padding: 0 16px 16px; }
 .format-help code { word-break: break-all; }
 
 /* ---------- Fiil çekimleri ---------- */
-.mini-btn.conj-btn { width: auto; padding: 0 10px; display: inline-flex; gap: 5px; font-size: .72rem; font-weight: 700; color: var(--accent); }
-.conj-head { display: grid; gap: 3px; padding-bottom: 2px; }
-.conj-head .fa { direction: rtl; text-align: right; font-family: "Noto Naskh Arabic", "Amiri", serif; font-size: 1.5rem; font-weight: 600; }
-.conj-head .pron { color: var(--muted); font-size: .78rem; font-style: normal; }
-.conj-head .tr { font-weight: 650; }
-.conj-list { display: grid; gap: 10px; }
-.conj-card { border: 1px solid var(--border); border-radius: 12px; padding: 11px 13px; background: var(--surface-2); }
-.conj-label { font-size: .72rem; font-weight: 700; color: var(--accent); margin-bottom: 6px; }
-.conj-fa { direction: rtl; text-align: right; font-family: "Noto Naskh Arabic", "Amiri", "Scheherazade New", serif; font-size: 1.16rem; line-height: 1.5; }
-.conj-pron { color: var(--muted); font-size: .76rem; font-style: normal; margin-top: 2px; }
-.conj-tr { font-size: .9rem; font-weight: 600; margin-top: 4px; }
-.conj-note { font-size: .72rem; color: var(--muted); line-height: 1.6; }
+.conj-dots {
+  display: flex; justify-content: center; align-items: center; gap: 8px;
+  width: 100%; margin-top: 10px; padding: 7px 4px; border: 0;
+  background: transparent; cursor: pointer; border-radius: 10px;
+}
+.conj-dots:active { background: var(--accent-soft); }
+.conj-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); opacity: .8; }
+.sheet-panel.conj-panel { background: #dce8e8; }
+.sheet-panel.conj-panel .sheet-head {
+  padding: 18px 18px 12px; background: var(--accent); color: #fff;
+  border-radius: 22px 22px 0 0;
+}
+.sheet-panel.conj-panel .sheet-head h2 { font-size: 1.2rem; }
+.sheet-panel.conj-panel .sheet-head .icon-btn { color: #fff; }
+.sheet-panel.conj-panel .sheet-body { gap: 10px; padding: 12px 18px 12px; }
+.conj-note {
+  font-size: .78rem; color: #2b565b; text-align: center; font-weight: 650;
+  background: #eef2f1; border: 1px solid #d5e0df; border-radius: 10px; padding: 8px 10px;
+}
+.conj-tabs { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.conj-tab, .conj-neg {
+  border: 0; border-radius: 99px; padding: 7px 14px; font-weight: 700; font-size: .8rem;
+  background: #eef2f1; color: #3a5357; cursor: pointer;
+}
+.conj-tab.active, .conj-neg.active { background: var(--accent); color: #fff; }
+.conj-neg { margin-left: auto; }
+.conj-rows { display: grid; gap: 0; }
+.conj-row {
+  display: grid; grid-template-columns: 66px minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center; gap: 10px; padding: 10px 4px; border-bottom: 1px solid #cbd9d8;
+}
+.conj-row:last-child { border-bottom: 0; }
+.conj-person { font-size: .78rem; color: #4a6165; font-weight: 700; }
+.conj-fa-cell { display: grid; gap: 2px; min-width: 0; }
+.conj-fa { direction: rtl; text-align: right; font-family: "Noto Naskh Arabic", "Amiri", "Scheherazade New", serif; font-size: 1.08rem; line-height: 1.5; }
+.conj-lat { font-size: .72rem; color: var(--muted); font-style: italic; }
+.conj-tr { font-size: .86rem; font-weight: 600; color: var(--text); }
+.sheet-panel.conj-panel .sheet-foot { justify-content: center; background: #dce8e8; }
+.sheet-panel.conj-panel .sheet-foot .primary-btn { flex: 0 1 220px; }
 
 /* ---------- Toast ---------- */
 .toast {

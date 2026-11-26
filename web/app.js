@@ -134,18 +134,53 @@
   const C_ALIAS = CONJ.aliases || {};
   const C_TR_ALIAS = CONJ.trAlias || {};
   const C_COPULA = CONJ.copula || { keys: [], rows: [] };
+  const C_CP = CONJ.copulaPersons || {};
+  const C_TR_IMP_NEG = CONJ.trImpNeg || {};
+  const TR_NEG_FIRST = {
+    'sahip olmak': ['sahip değildim', 'sahip olmayacağım'],
+    'olmak': ['olmadım', 'olmayacağım'],
+    'yemek': ['yemedim', 'yemeyeceğim'],
+    'içmek': ['içmedim', 'içmeyeceğim'],
+    'gitmek': ['gitmedim', 'gitmeyeceğim'],
+    'istemek': ['istemdim', 'istemeyeceğim'],
+    'etmek': ['etmedim', 'etmeyeceğim'],
+    'yürümek': ['yürümedim', 'yürümeyeceğim'],
+    'başlamak': ['başlamadım', 'başlamayacağım'],
+    'ilerlemek': ['ilerlemedim', 'ilerlemeyeceğim'],
+    'hatırlamak': ['hatırlamadım', 'hatırlamayacağım'],
+    'tamamlamak': ['tamamlamadım', 'tamamlamayacağım'],
+    'saklamak': ['saklamadım', 'saklamayacağım'],
+    'bağlamak': ['bağlamadım', 'bağlamayacağım'],
+    'ayarlamak': ['ayarlamadım', 'ayarlamayacağım'],
+    'yüklemek': ['yüklemedim', 'yüklemeyeceğim'],
+    'düzenlemek': ['düzenlemedim', 'düzenlemeyeceğim'],
+    'tıklamak': ['tıklamadım', 'tıklamayacağım'],
+    'oynamak': ['oynamadım', 'oynamayacağım'],
+  };
   const COP_KEYS = new Set((C_COPULA.keys || []).map(normFa));
-  const POS_PARTICLE = (CONJ.particles && CONJ.particles.pos) || 'می';
-  const NEG_PARTICLE = (CONJ.particles && CONJ.particles.neg) || 'نمی';
-  const WANT = ((CONJ.particles && CONJ.particles.want) || ['خواهم'])[0];
+  const P = CONJ.particles || {};
+  const POS_PARTICLE = P.pos || 'می';
+  const NEG_PARTICLE = P.neg || 'نمی';
+  const P_WANT = P.want || ['خواهم', 'خواهی', 'خواهد', 'خواهیم', 'خواهید', 'خواهند'];
+  const P_WANT_LATIN = P.wantLatin || ['xâham', 'xâhi', 'xâhad', 'xâhim', 'xâhid', 'xâhand'];
+  const P_WANT_NEG_FA = P.wantNegFa || ['نخواهم', 'نخواهی', 'نخواهد', 'نخواهیم', 'نخواهید', 'نخواهند'];
+  const P_WANT_NEG_LATIN = P.wantNegLatin || ['naxâham', 'naxâhi', 'naxâhad', 'naxâhim', 'naxâhid', 'naxâhand'];
 
-  const CONJ_LABELS = [
-    'Şimdiki zaman (olumlu)',
-    'Şimdiki zaman (olumsuz)',
-    'Geçmiş zaman',
-    'Gelecek zaman',
-    'Emir',
+  const PERSONS = [
+    { fa: 'من', tr: 'ben' },
+    { fa: 'تو', tr: 'sen' },
+    { fa: 'او', tr: 'o' },
+    { fa: 'ما', tr: 'biz' },
+    { fa: 'شما', tr: 'siz' },
+    { fa: 'آنها', tr: 'onlar' },
   ];
+  const TENSES = [
+    { key: 'past', label: 'Geçmiş' },
+    { key: 'pres', label: 'Şimdi' },
+    { key: 'fut', label: 'Gelecek' },
+    { key: 'imp', label: 'Emir' },
+  ];
+  let conjState = { data: null, tense: 'past', negative: false };
 
   // Fiil: Tür "fiil" ise ya da Farsça mastar (-n) + Türkçe mastar (mak/mek) ise.
   function isVerb(entry) {
@@ -244,10 +279,108 @@
     return { prefix: whole ? '' : split.prefix, forms };
   }
 
-  function conjugate(entry) {
+  // Birinci şahıs çekiminden 6 kişilik Türkçe dizi üretir.
+  function trPersons(rawFirst, kind, prefix) {
+    let w = String(rawFirst || '').trim();
+    if (!w) return ['', '', '', '', '', ''];
+    let pfx = prefix || '';
+    if (!pfx && /\s/.test(w)) {
+      const sp = splitWord(w);
+      if (sp.prefix) { pfx = sp.prefix + ' '; w = sp.last; }
+    }
+    const add = (arr) => arr.map((x) => pfx + x);
+    const maps = {
+      pres: [
+        ['ıyorum', 'ıyorsun', 'ıyor', 'ıyoruz', 'ıyorsunuz', 'ıyorlar'],
+        ['iyorum', 'iyorsun', 'iyor', 'iyoruz', 'iyorsunuz', 'iyorlar'],
+        ['uyorum', 'uyorsun', 'uyor', 'uyoruz', 'uyorsunuz', 'uyorlar'],
+        ['üyorum', 'üyorsun', 'üyor', 'üyoruz', 'üyorsunuz', 'üyorlar'],
+        ['yorum', 'yorsun', 'yor', 'yoruz', 'yorsunuz', 'yorlar'],
+      ],
+      presNeg: [
+        ['mıyorum', 'mıyorsun', 'mıyor', 'mıyoruz', 'mıyorsunuz', 'mıyorlar'],
+        ['miyorum', 'miyorsun', 'miyor', 'miyoruz', 'miyorsunuz', 'miyorlar'],
+        ['muyorum', 'muyorsun', 'muyor', 'muyoruz', 'muyorsunuz', 'muyorlar'],
+        ['müyorum', 'müyorsun', 'müyor', 'müyoruz', 'müyorsunuz', 'müyorlar'],
+      ],
+    };
+    if (maps[kind]) {
+      for (const m of maps[kind]) {
+        if (w.endsWith(m[0])) {
+          const base = w.slice(0, -m[0].length);
+          return add([w].concat(m.slice(1).map((x) => base + x)));
+        }
+      }
+      if (/im$/.test(w)) {
+        const base = w.slice(0, -2);
+        return add([w, base + 'sin', base, base + 'iz', base + 'siniz', base + 'ler']);
+      }
+    }
+    if (kind === 'past') {
+      const m = w.match(/([dt])([ıiuü])m$/);
+      if (m) {
+        const base = w.slice(0, -m[0].length);
+        const v = m[2];
+        const pl = v === 'ı' ? 'nız' : (v === 'i' ? 'niz' : (v === 'u' ? 'nuz' : 'nüz'));
+        const ar = v === 'ı' ? 'lar' : (v === 'i' ? 'ler' : (v === 'u' ? 'lar' : 'ler'));
+        const stem = base + m[1] + v;
+        return add([w, stem + 'n', stem, stem + 'k', stem + pl, stem + ar]);
+      }
+    }
+    if (kind === 'pastNeg') {
+      const m = w.match(/(m[aeiouü])([dt])([ıiuü])m$/);
+      if (m) {
+        const base = w.slice(0, -m[0].length);
+        const v = m[3];
+        const pl = v === 'ı' ? 'nız' : (v === 'i' ? 'niz' : (v === 'u' ? 'nuz' : 'nüz'));
+        const ar = v === 'ı' ? 'lar' : (v === 'i' ? 'ler' : (v === 'u' ? 'lar' : 'ler'));
+        const stem = base + m[1] + m[2] + v;
+        return add([w, stem + 'n', stem, stem + 'k', stem + pl, stem + ar]);
+      }
+    }
+    if (kind === 'fut' && (w.endsWith('acağım') || w.endsWith('eceğim'))) {
+      const a = w.endsWith('acağım');
+      const base = w.slice(0, -6);
+      return add(a
+        ? [w, base + 'acaksın', base + 'acak', base + 'acağız', base + 'acaksınız', base + 'acaklar']
+        : [w, base + 'eceksin', base + 'ecek', base + 'eceğiz', base + 'eceksiniz', base + 'ecekler']);
+    }
+    if (kind === 'futNeg' && (w.endsWith('mayacağım') || w.endsWith('meyeceğim'))) {
+      const a = w.endsWith('mayacağım');
+      const base = w.slice(0, -9);
+      return add(a
+        ? [w, base + 'mayacaksın', base + 'mayacak', base + 'mayacağız', base + 'mayacaksınız', base + 'mayacaklar']
+        : [w, base + 'meyeceksin', base + 'meyecek', base + 'meyeceğiz', base + 'meyeceksiniz', base + 'meyecekler']);
+    }
+    return add([w, w, w, w, w, w]);
+  }
+
+  function trImpNeg(forms, rawTr) {
+    const first = String(rawTr || '').split(';')[0].replace(/\([^)]*\)/g, '').trim();
+    const clean = C_TR_ALIAS[normTr(first)] || first;
+    const key = normTr(clean);
+    if (C_TR_IMP_NEG[key]) return C_TR_IMP_NEG[key];
+    const split = splitWord(clean);
+    const hit = C_TR_IMP_NEG[normTr(split.last)];
+    if (hit) return [split.prefix ? split.prefix + ' ' + hit[0] : hit[0], split.prefix ? split.prefix + ' ' + hit[1] : hit[1]];
+    const front = /[eiöü]$/i.test(forms.imp);
+    const sg = forms.imp + (front ? 'me' : 'ma');
+    return [sg, sg + (front ? 'in' : 'yın')];
+  }
+
+  function conjugateFull(entry) {
     const faKey = normFa(entry.fa);
     if (COP_KEYS.has(faKey)) {
-      return { title: entry.fa, rows: C_COPULA.rows || [] };
+      return {
+        title: entry.fa,
+        note: 'Otomatik üretildi — kökleri kontrol et.',
+        tenses: {
+          past: { pos: C_CP.past || [], neg: C_CP.pastNeg || [] },
+          pres: { pos: C_CP.pres || [], neg: C_CP.presNeg || [] },
+          fut: { pos: C_CP.fut || [], neg: C_CP.futNeg || [] },
+          imp: { pos: C_CP.imp || [], neg: C_CP.impNeg || [] },
+        },
+      };
     }
 
     const faSplit = splitWord(entry.fa);
@@ -259,80 +392,138 @@
     const pfx = faSplit.prefix ? faSplit.prefix + ' ' : '';
     const pfxPron = pronSplit.prefix ? pronSplit.prefix + ' ' : '';
     const pfxTr = tr.prefix ? tr.prefix + ' ' : '';
-    const posPron = POS_PARTICLE === 'نمی' ? 'nemi' : 'mi';
-    const negPron = NEG_PARTICLE === 'نمی' ? 'nemi' : 'nemi';
-    const wantPron = WANT === 'خواهم' ? 'xâham ' : '';
+    const posPron = 'mi';
+    const negPron = 'nemi';
 
-    const impFa = compound ? (s.cImp || s.imp) : s.imp;
-    const impPlFa = compound ? (s.cImpPl || s.impPl) : s.impPl;
-    const impPron = compound ? (s.pCImp || s.pImp) : s.pImp;
-    const impPlPron = compound ? (s.pCImpPl || s.pImpPl) : s.pImpPl;
-    const now1 = s.now + (/[واا]$/.test(s.now) ? 'ی' : '') + 'م';
+    const faEnds = ['م', 'ی', '', 'یم', 'ید', 'ند'];
+    const laEnds = ['am', 'i', '', 'im', 'id', 'and'];
+    const nowBase = /[واا]$/.test(s.now) ? s.now + 'ی' : s.now;
+    const pNowBase = String(s.p1 || '').replace(/am$/, '');
+    const pPastBase = String(s.p1Past || '').replace(/am$/, '');
+
+    const nowEnds = ['م', 'ی', 'د', 'یم', 'ید', 'ند'];
+    const nowLatEnds = ['am', 'i', 'ad', 'im', 'id', 'and'];
+    const presFa = nowEnds.map((x) => pfx + POS_PARTICLE + ' ' + nowBase + x);
+    const presPron = nowLatEnds.map((x) => pfxPron + posPron + ' ' + pNowBase + x);
+    const presFaNeg = nowEnds.map((x) => pfx + NEG_PARTICLE + ' ' + nowBase + x);
+    const presPronNeg = nowLatEnds.map((x) => pfxPron + negPron + ' ' + pNowBase + x);
+
+    const pastFa = faEnds.map((x) => pfx + s.past + x);
+    const pastPron = [s.p1Past].concat(['i', '', 'im', 'id', 'and'].map((x) => pPastBase + x))
+      .map((x) => pfxPron + x);
+    const pastFaNeg = faEnds.map((x) => pfx + 'ن' + s.past + x);
+    const pastPronNeg = [s.p1Past].concat(['i', '', 'im', 'id', 'and'].map((x) => pPastBase + x))
+      .map((x) => pfxPron + 'na' + x);
+
+    const futFa = P_WANT.map((w) => pfx + w + ' ' + s.past);
+    const futPron = P_WANT_LATIN.map((w) => pfxPron + w + ' ' + s.pPast);
+    const futFaNeg = P_WANT_NEG_FA.map((w) => pfx + w + ' ' + s.past);
+    const futPronNeg = P_WANT_NEG_LATIN.map((w) => pfxPron + w + ' ' + s.pPast);
+
+    const impPosFa = compound ? [(s.cImp || s.imp), (s.cImpPl || s.impPl)] : [s.imp, s.impPl];
+    const impPosPron = compound ? [(s.pCImp || s.pImp), (s.pCImpPl || s.pImpPl)] : [s.pImp, s.pImpPl];
+    const impNegFa = compound ? ['م' + (s.cImp || s.imp), 'م' + (s.cImp || s.imp) + 'ید'] : ['م' + s.now, 'م' + s.now + 'ید'];
+    const impNegPron = compound ? ['ma' + (s.pCImp || s.pNow), 'ma' + (s.pCImp || s.pNow) + 'id'] : ['ma' + s.pNow, 'ma' + s.pNow + 'id'];
+    const impTrPos = [tr.forms.imp, tr.forms.impPl].map((x) => pfxTr + x);
+    const impTrNeg = trImpNeg(tr.forms, entry.tr).map((x) => pfxTr + x);
+    const emptyImp = () => [{ fa: '', pron: '', tr: '' }];
+
+    const trFirst = String(entry.tr || '').split(';')[0].replace(/\([^)]*\)/g, '').trim();
+    const negHit = TR_NEG_FIRST[normTr(trFirst)] || TR_NEG_FIRST[normTr(splitWord(trFirst).last)];
+    const pastNegFirst = negHit ? negHit[0] : String(tr.forms.past || '').replace(/([dt])([ıiuü])m$/, 'medim');
+    const futNegFirst = negHit ? negHit[1] : String(tr.forms.fut || '').replace(/(acağım|eceğim)$/, (m) => (m[0] === 'a' ? 'mayacağım' : 'meyeceğim'));
+
+    const trPres = trPersons(tr.forms.pres, 'pres', pfxTr);
+    const trPresNeg = trPersons(tr.forms.neg, 'presNeg', pfxTr);
+    const trPast = trPersons(tr.forms.past, 'past', pfxTr);
+    const trPastNeg = trPersons(pastNegFirst, 'pastNeg', pfxTr);
+    const trFut = trPersons(tr.forms.fut, 'fut', pfxTr);
+    const trFutNeg = trPersons(futNegFirst, 'futNeg', pfxTr);
+
+    const rows = (fa, pron, trs) => fa.map((x, i) => ({ fa: x, pron: pron[i] || '', tr: trs[i] || '' }));
+    const impRows = (fa, pron, trs) => [
+      { fa: '', pron: '', tr: '' },
+      { fa: fa[0], pron: pron[0], tr: trs[0] },
+      { fa: '', pron: '', tr: '' },
+      { fa: '', pron: '', tr: '' },
+      { fa: fa[1], pron: pron[1], tr: trs[1] },
+      { fa: '', pron: '', tr: '' },
+    ];
 
     return {
       title: entry.fa,
-      rows: [
-        {
-          label: CONJ_LABELS[0],
-          fa: 'من ' + pfx + POS_PARTICLE + ' ' + now1,
-          pron: 'man ' + pfxPron + posPron + ' ' + s.p1,
-          tr: pfxTr + tr.forms.pres,
+      note: 'Otomatik üretildi — kökleri kontrol et.',
+      tenses: {
+        past: {
+          pos: rows(pastFa, pastPron, trPast),
+          neg: rows(pastFaNeg, pastPronNeg, trPastNeg),
         },
-        {
-          label: CONJ_LABELS[1],
-          fa: 'من ' + pfx + NEG_PARTICLE + ' ' + now1,
-          pron: 'man ' + pfxPron + negPron + ' ' + s.p1,
-          tr: pfxTr + tr.forms.neg,
+        pres: {
+          pos: rows(presFa, presPron, trPres),
+          neg: rows(presFaNeg, presPronNeg, trPresNeg),
         },
-        {
-          label: CONJ_LABELS[2],
-          fa: 'من ' + pfx + s.past + 'م',
-          pron: 'man ' + pfxPron + s.p1Past,
-          tr: pfxTr + tr.forms.past,
+        fut: {
+          pos: rows(futFa, futPron, trFut),
+          neg: rows(futFaNeg, futPronNeg, trFutNeg),
         },
-        {
-          label: CONJ_LABELS[3],
-          fa: 'من ' + pfx + WANT + ' ' + s.past,
-          pron: 'man ' + pfxPron + wantPron + s.pPast,
-          tr: pfxTr + tr.forms.fut,
+        imp: {
+          pos: impRows(impPosFa, impPosPron, impTrPos),
+          neg: impRows(impNegFa, impNegPron, impTrNeg),
         },
-        {
-          label: CONJ_LABELS[4],
-          fa: pfx + impFa + ' · ' + pfx + impPlFa,
-          pron: pfxPron + impPron + ' · ' + pfxPron + impPlPron,
-          tr: pfxTr + tr.forms.imp + ' · ' + pfxTr + tr.forms.impPl,
-        },
-      ],
+      },
     };
   }
 
-  function openConj(entry) {
-    const data = conjugate(entry);
-    $('#conjTitle').textContent = entry.fa;
+  function renderConj() {
+    const data = conjState.data;
+    if (!data) return;
+    $('#conjTitle').textContent = data.title;
     const body = $('#conjBody');
     body.innerHTML = '';
 
-    const head = el('div', 'conj-head');
-    const fa = el('div', 'fa', entry.fa);
-    fa.setAttribute('dir', 'rtl');
-    head.appendChild(fa);
-    if (entry.pron) head.appendChild(el('div', 'pron', entry.pron));
-    head.appendChild(el('div', 'tr', entry.tr));
-    body.appendChild(head);
+    body.appendChild(el('div', 'conj-note', data.note));
 
-    const list = el('div', 'conj-list');
-    data.rows.forEach((r) => {
-      const cardEl = el('div', 'conj-card');
-      cardEl.appendChild(el('div', 'conj-label', r.label));
-      const rfa = el('div', 'conj-fa', r.fa);
-      rfa.setAttribute('dir', 'rtl');
-      cardEl.appendChild(rfa);
-      if (r.pron) cardEl.appendChild(el('div', 'conj-pron', r.pron));
-      cardEl.appendChild(el('div', 'conj-tr', r.tr));
-      list.appendChild(cardEl);
+    const tabs = el('div', 'conj-tabs');
+    TENSES.forEach((t) => {
+      const b = el('button', 'conj-tab' + (conjState.tense === t.key ? ' active' : ''), t.label);
+      b.type = 'button';
+      b.addEventListener('click', () => {
+        conjState.tense = t.key;
+        renderConj();
+      });
+      tabs.appendChild(b);
+    });
+    const neg = el('button', 'conj-neg' + (conjState.negative ? ' active' : ''), 'Olumsuz' + (conjState.negative ? ' ✕' : ''));
+    neg.type = 'button';
+    neg.addEventListener('click', () => {
+      conjState.negative = !conjState.negative;
+      renderConj();
+    });
+    tabs.appendChild(neg);
+    body.appendChild(tabs);
+
+    const list = el('div', 'conj-rows');
+    const current = data.tenses[conjState.tense] || { pos: [], neg: [] };
+    const items = conjState.negative ? current.neg : current.pos;
+    items.forEach((r, i) => {
+      if (!r.fa) return;
+      const row = el('div', 'conj-row');
+      row.appendChild(el('span', 'conj-person', PERSONS[i] ? PERSONS[i].tr : ''));
+      const faCell = el('div', 'conj-fa-cell');
+      const fa = el('div', 'conj-fa', r.fa);
+      fa.setAttribute('dir', 'rtl');
+      faCell.appendChild(fa);
+      if (r.pron) faCell.appendChild(el('div', 'conj-lat', r.pron));
+      row.appendChild(faCell);
+      row.appendChild(el('div', 'conj-tr', r.tr || '—'));
+      list.appendChild(row);
     });
     body.appendChild(list);
-    body.appendChild(el('div', 'conj-note', 'می و نمی fiilden ayrı yazılır; emir sadece sen ve siz içindir.'));
+  }
+
+  function openConj(entry) {
+    conjState = { data: conjugateFull(entry), tense: 'past', negative: false };
+    renderConj();
     openSheet('conjSheet');
   }
 
@@ -503,19 +694,22 @@
       copyText(entry.fa + ' — ' + entry.tr);
     });
 
-    if (isVerb(entry)) {
-      const conjBtn = el('button', 'mini-btn conj-btn', 'çekim');
-      conjBtn.type = 'button';
-      conjBtn.title = 'Fiil çekimleri';
-      conjBtn.addEventListener('click', (ev) => {
-        ev.stopPropagation();
-        openConj(entry);
-      });
-      actions.appendChild(conjBtn);
-    }
     actions.append(favBtn, copyBtn);
     head.append(main, actions);
     wrap.appendChild(head);
+
+    if (isVerb(entry)) {
+      const dots = el('button', 'conj-dots');
+      dots.type = 'button';
+      dots.title = 'Fiil çekimlerini aç';
+      dots.setAttribute('aria-label', 'Fiil çekimlerini aç');
+      for (let i = 0; i < 6; i++) dots.appendChild(el('span', 'conj-dot'));
+      dots.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        openConj(entry);
+      });
+      wrap.appendChild(dots);
+    }
     return wrap;
   }
 
