@@ -143,6 +143,7 @@ main { flex: 1; padding: 0 16px 16px; }
 .card-head { display: flex; align-items: flex-start; gap: 10px; }
 .card-main { flex: 1; min-width: 0; }
 .word-line { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.word-fa-wrap { display: inline-flex; flex-direction: column; align-items: flex-start; direction: rtl; }
 .word-fa {
   font-family: "Noto Naskh Arabic", "Amiri", "Scheherazade New", "Times New Roman", serif;
   font-size: 1.45rem; line-height: 1.4; direction: rtl; text-align: right; font-weight: 600;
@@ -262,9 +263,9 @@ main { flex: 1; padding: 0 16px 16px; }
 
 /* ---------- Fiil çekimleri ---------- */
 .conj-dots {
-  display: flex; justify-content: center; align-items: center; gap: 8px;
-  width: 100%; margin-top: 10px; padding: 7px 4px; border: 0;
-  background: transparent; cursor: pointer; border-radius: 10px;
+  display: flex; justify-content: flex-start; align-items: center; gap: 6px;
+  width: auto; margin-top: 4px; padding: 2px 0; border: 0; direction: rtl;
+  background: transparent; cursor: pointer; border-radius: 8px;
 }
 .conj-dots:active { background: var(--accent-soft); }
 .conj-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); opacity: .8; }
@@ -281,12 +282,11 @@ main { flex: 1; padding: 0 16px 16px; }
   background: #eef2f1; border: 1px solid #d5e0df; border-radius: 10px; padding: 8px 10px;
 }
 .conj-tabs { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
-.conj-tab, .conj-neg {
+.conj-tab {
   border: 0; border-radius: 99px; padding: 7px 14px; font-weight: 700; font-size: .8rem;
   background: #eef2f1; color: #3a5357; cursor: pointer;
 }
-.conj-tab.active, .conj-neg.active { background: var(--accent); color: #fff; }
-.conj-neg { margin-left: auto; }
+.conj-tab.active { background: var(--accent); color: #fff; }
 .conj-rows { display: grid; gap: 0; }
 .conj-row {
   display: grid; grid-template-columns: 66px minmax(0, 1fr) minmax(0, 1fr);

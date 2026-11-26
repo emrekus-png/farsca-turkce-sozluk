@@ -100,9 +100,9 @@ fa,tr,pron,pos,cat
 
 ### Fiil çekimleri
 
-Gömülü fiillerin ve sonradan eklediğin fiillerin kartının altında altı nokta görünür. Noktalara dokununca ayrı ekranda **Geçmiş / Şimdi / Gelecek / Emir** sekmeleri açılır; her sekmede ben, sen, o, biz, siz, onlar için Farsça + Latin okunuş + Türkçe karşılık gösterilir. **Olumsuz** düğmesi olumlu/olumsuz arasında geçiş yapar; Emir sekmesinde sadece **sen** ve **siz** satırları vardır.
+Gömülü fiillerin ve sonradan eklediğin fiillerin **Farsça kelimesinin hemen altında** altı nokta görünür. Noktalara dokununca ayrı ekranda **Geçmiş / Şimdi / Gelecek / Emir** sekmeleri açılır; her sekmede ben, sen, o, biz, siz, onlar için Farsça + Latin okunuş + Türkçe karşılık gösterilir. Yalnızca olumlu çekimler gösterilir; Emir sekmesinde sadece **sen** ve **siz** satırları vardır.
 
-Kurallar: `می` / `نمی` fiilden ayrı yazılır; bileşik fiillerde yardımcı fiilden önce gelir (`کار می کنم`, `کار خواهم کرد`). Şimdiki zaman ve emirde şimdiki kök (`گیرم`), geçmiş/gelecekte geçmiş kök (`گرفتم`) kullanılır. `هست/است` için `می`/`نمی` eklenmez; olumsuzu `نیست`tir.
+Kurallar: `می` fiilden ayrı yazılır; bileşik fiillerde yardımcı fiilden önce gelir (`کار می کنم`, `کار خواهم کرد`). Şimdiki zaman ve emirde şimdiki kök (`گیرم`), geçmiş/gelecekte geçmiş kök (`گرفتم`) kullanılır. `هست/است` için `می` eklenmez. Bileşik emirde önek korunur: `ادامه بده`, `ادامه بدهید`.
 
 Yeni eklediğin bir kelimenin fiil sayılması için **Tür: fiil** yazman yeterlidir; ya da Farsça `-ن` ile, Türkçe `mak/mek` ile bitmesi de yeterli sayılır. Düzensiz fiillerin kökleri `data/conjugations.json` dosyasındadır; bilinmeyen fiillerde okunuş ve Türkçe karşılık kural ile yaklaşık üretilir.
 
