@@ -204,9 +204,10 @@ main { flex: 1; padding: 0 16px 16px; }
 .story-arrow { color: var(--accent); font-size: 1.1rem; }
 .story-body { display: grid; gap: 14px; padding: 0 15px 15px; }
 .story-body[hidden] { display: none; }
-.story-paragraph {
-  display: grid; gap: 5px; border-top: 1px solid var(--border); padding-top: 12px;
+.story-body > .story-text {
+  border-top: 1px solid var(--border); padding-top: 12px; white-space: pre-wrap;
 }
+.story-tr, .story-pron { line-height: 1.6; }
 .story-fa {
   font-family: "Noto Naskh Arabic", "Amiri", serif; font-size: 1.12rem;
   line-height: 1.9; direction: rtl; text-align: right;

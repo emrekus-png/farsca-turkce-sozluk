@@ -120,20 +120,17 @@ Format:
     "level": "zor",
     "titleFa": "...",
     "titleTr": "...",
-    "paragraphs": [
-      {
-        "fa": "...",
-        "pron": "...",
-        "tr": "..."
-      }
-    ]
+    "fa": "...",
+    "tr": "...",
+    "pron": "..."
   }
 ]
 ```
 
 - `level`: `zor`, `orta` veya `kolay`
+- `fa`, `tr`, `pron` alanları hikâyenin **tam metnidir**; cümle cümle veya paragraf paragraf bölünmez.
+- Ekranda sırayla Farsça tam metin, Türkçe tam metin ve Latin okunuş tam metin alt alta gösterilir.
 - `pron` isteğe bağlıdır; boş bırakılabilir.
-- Her `paragraphs` öğesi bir okuma paragrafıdır.
 - Dosyayı değiştirdikten sonra `node scripts/embed-dictionary.js` çalıştırılır; GitHub Actions derlemesi bunu otomatik yapar ve `web/stories.js` dosyasını yeniler.
 
 ## 4) Uygulama kimliğini değiştirme

@@ -50,20 +50,15 @@ fs.writeFileSync(conjDest, `${conjBanner}window.CONJUGATIONS = ${JSON.stringify(
 console.log(`OK: çekim verisi -> ${path.relative(root, conjDest)}`);
 
 const rawStories = JSON.parse(fs.readFileSync(storiesSrc, 'utf8'));
-const stories = (Array.isArray(rawStories) ? rawStories : []).map((s, i) => {
-  const paragraphs = (Array.isArray(s.paragraphs) ? s.paragraphs : []).map((p) => ({
-    fa: String(p.fa || '').trim(),
-    pron: String(p.pron || '').trim(),
-    tr: String(p.tr || '').trim(),
-  })).filter((p) => p.fa || p.tr);
-  return {
-    id: String(s.id || `hikaye-${i + 1}`).trim(),
-    level: String(s.level || 'orta').trim().toLowerCase(),
-    titleFa: String(s.titleFa || '').trim(),
-    titleTr: String(s.titleTr || '').trim(),
-    paragraphs,
-  };
-}).filter((s) => ['zor', 'orta', 'kolay'].includes(s.level) && (s.titleFa || s.titleTr || s.paragraphs.length));
+const stories = (Array.isArray(rawStories) ? rawStories : []).map((s, i) => ({
+  id: String(s.id || `hikaye-${i + 1}`).trim(),
+  level: String(s.level || 'orta').trim().toLowerCase(),
+  titleFa: String(s.titleFa || '').trim(),
+  titleTr: String(s.titleTr || '').trim(),
+  fa: String(s.fa || '').trim(),
+  tr: String(s.tr || '').trim(),
+  pron: String(s.pron || '').trim(),
+})).filter((s) => ['zor', 'orta', 'kolay'].includes(s.level) && (s.titleFa || s.titleTr || s.fa || s.tr || s.pron));
 
 const storiesBanner = [
   '// BU DOSYA OTOMATİK ÜRETİLMİŞTİR — düzenlemeyin.',

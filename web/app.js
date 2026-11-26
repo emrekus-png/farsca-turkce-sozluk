@@ -63,13 +63,11 @@
       level: String(s.level || '').trim().toLowerCase(),
       titleFa: String(s.titleFa || '').trim(),
       titleTr: String(s.titleTr || '').trim(),
-      paragraphs: (Array.isArray(s.paragraphs) ? s.paragraphs : []).map((p) => ({
-        fa: String(p.fa || '').trim(),
-        pron: String(p.pron || '').trim(),
-        tr: String(p.tr || '').trim(),
-      })).filter((p) => p.fa || p.tr),
+      fa: String(s.fa || '').trim(),
+      tr: String(s.tr || '').trim(),
+      pron: String(s.pron || '').trim(),
     }))
-    .filter((s) => STORY_LEVEL_KEYS.has(s.level) && (s.titleFa || s.titleTr || s.paragraphs.length));
+    .filter((s) => STORY_LEVEL_KEYS.has(s.level) && (s.titleFa || s.titleTr || s.fa || s.tr || s.pron));
   let storyLevel = 'zor';
 
   const $ = (sel, root) => (root || document).querySelector(sel);
@@ -757,19 +755,17 @@
 
       const body = el('div', 'story-body');
       body.hidden = true;
-      if (!story.paragraphs.length) {
+      const blocks = [];
+      if (story.fa) blocks.push({ cls: 'story-fa', text: story.fa, rtl: true });
+      if (story.tr) blocks.push({ cls: 'story-tr', text: story.tr });
+      if (story.pron) blocks.push({ cls: 'story-pron', text: story.pron });
+      if (!blocks.length) {
         body.appendChild(el('div', 'muted small', 'Bu hikâyede metin yok.'));
       } else {
-        story.paragraphs.forEach((p) => {
-          const para = el('div', 'story-paragraph');
-          if (p.fa) {
-            const faLine = el('div', 'story-fa', p.fa);
-            faLine.setAttribute('dir', 'rtl');
-            para.appendChild(faLine);
-          }
-          if (p.pron) para.appendChild(el('div', 'story-pron', p.pron));
-          if (p.tr) para.appendChild(el('div', 'story-tr', p.tr));
-          body.appendChild(para);
+        blocks.forEach((b) => {
+          const node = el('div', 'story-text ' + b.cls, b.text);
+          if (b.rtl) node.setAttribute('dir', 'rtl');
+          body.appendChild(node);
         });
       }
 
