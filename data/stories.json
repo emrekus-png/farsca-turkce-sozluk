@@ -1,1 +1,50 @@
-[]
+[
+  {
+    "id": "hikaye-1",
+    "level": "kolay",
+    "titleFa": "صبح در خانه ما",
+    "titleTr": "Evimizde Sabah",
+    "paragraphs": [
+      {
+        "fa": "ساعت هفت صبح است.",
+        "pron": "Sâ'at-e haft-e sobh ast.",
+        "tr": "Saat sabah yedi."
+      },
+      {
+        "fa": "من از خواب بیدار می‌شوم.",
+        "pron": "Man az xâb bidâr mi-šavam.",
+        "tr": "Uyanıyorum."
+      },
+      {
+        "fa": "به آشپزخانه می\u200cروم.",
+        "pron": "Be âšpazxâne mi-ravam.",
+        "tr": "Mutfağa gidiyorum."
+      },
+      {
+        "fa": "مادرم چای درست می\u200cکند و پدرم روزنامه می\u200cخواند.",
+        "pron": "Mâdaram čây dorost mi-konad o pedaram ruznâme mi-xânad.",
+        "tr": "Annem çay demliyor ve babam gazete okuyor."
+      },
+      {
+        "fa": "من نان و پنیر می\u200cخورم و یک لیوان چای گرم می\u200cنوشم.",
+        "pron": "Man nân o panir mi-xoram o yek livân-e čây-e garm mi-nušam.",
+        "tr": "Ekmek ve peynir yiyorum, bir bardak sıcak çay içiyorum."
+      },
+      {
+        "fa": "بعد صورتم را می\u200cشویم و لباس\u200cهایم را می\u200cپوشم.",
+        "pron": "Ba'd surataram râ mi-šuyam o lebâshâyam râ mi-pušam.",
+        "tr": "Sonra yüzümü yıkıyorum ve kıyafetlerimi giyiyorum."
+      },
+      {
+        "fa": "کیفم را برمی\u200cدارم و به مدرسه می\u200cروم.",
+        "pron": "Kifam râ barmidâram o be madrese mi-ravam.",
+        "tr": "Çantamı alıyorum ve okula gidiyorum."
+      },
+      {
+        "fa": "روزم را با انرژی شروع می\u200cکنم.",
+        "pron": "Ruzam râ bâ enerži šoru' mi-konam.",
+        "tr": "Günümü enerjiyle başlatıyorum."
+      }
+    ]
+  }
+]
