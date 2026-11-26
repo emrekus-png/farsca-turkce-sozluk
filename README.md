@@ -9,6 +9,7 @@
 - Favoriler, arama geçmişi, kelime kopyalama, 10 soruluk quiz
 - Tek tek kelime ekleme herkese açık; toplu text dosyası yönetici PIN'iyle korunur
 - Fiil kartındaki **çekim ikonuna** dokununca 6 kişilik çekim ekranı: Farsça + Latin okunuş + Türkçe karşılık
+- **Okuma Pratiği** bölümü: Zor → Orta → Kolay seviyelerinde hikâyelerle okuma çalışması
 - Uygulama adı, alt başlık, tema, renk, yazı boyutu ayarları
 - Tamamen çevrimdışı; veriler yalnızca cihazında saklanır
 
@@ -106,6 +107,35 @@ Kurallar: `می` fiilden ayrı yazılır; bileşik fiillerde yardımcı fiilden 
 
 Yeni eklediğin bir kelimenin fiil sayılması için **Tür: fiil** yazman yeterlidir; ya da Farsça `-ن` ile, Türkçe `mak/mek` ile bitmesi de yeterli sayılır. Düzensiz fiillerin kökleri `data/conjugations.json` dosyasındadır; bilinmeyen fiillerde okunuş ve Türkçe karşılık kural ile yaklaşık üretilir.
 
+### Okuma pratiği hikâyeleri
+
+Uygulamada **Geçmiş** ile **Quiz** arasında `Okuma Pratiği` sekmesi vardır. Seviye sırası **Zor → Orta → Kolay** şeklindedir. Hikâyeler `data/stories.json` dosyasından gelir; dosya başlangıçta boştur, uygulama içinden hikâye ekleme yoktur.
+
+Format:
+
+```json
+[
+  {
+    "id": "hikaye-1",
+    "level": "zor",
+    "titleFa": "...",
+    "titleTr": "...",
+    "paragraphs": [
+      {
+        "fa": "...",
+        "pron": "...",
+        "tr": "..."
+      }
+    ]
+  }
+]
+```
+
+- `level`: `zor`, `orta` veya `kolay`
+- `pron` isteğe bağlıdır; boş bırakılabilir.
+- Her `paragraphs` öğesi bir okuma paragrafıdır.
+- Dosyayı değiştirdikten sonra `node scripts/embed-dictionary.js` çalıştırılır; GitHub Actions derlemesi bunu otomatik yapar ve `web/stories.js` dosyasını yeniler.
+
 ## 4) Uygulama kimliğini değiştirme
 
 - `capacitor.config.json`: `appId` (Play Store için benzersiz paket adı) ve `appName`
@@ -117,7 +147,8 @@ Yeni eklediğin bir kelimenin fiil sayılması için **Tür: fiil** yazman yeter
 ```
 fa-tr-sozluk/
 ├── data/dictionary.json        # sözlük kaynağı (733 kelime)
-├── scripts/embed-dictionary.js # JSON -> web/dictionary.js
+├── data/stories.json           # okuma pratiği hikâyeleri (başlangıçta boş)
+├── scripts/embed-dictionary.js # JSON -> web/dictionary.js, conjugations.js, stories.js
 ├── scripts/serve.js            # yerel önizleme sunucusu
 ├── web/                        # uygulamanın kendisi (HTML/CSS/JS)
 ├── capacitor.config.json       # APK ayarları

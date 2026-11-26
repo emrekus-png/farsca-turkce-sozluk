@@ -8,6 +8,8 @@ const src = path.join(root, 'data', 'dictionary.json');
 const dest = path.join(root, 'web', 'dictionary.js');
 const conjSrc = path.join(root, 'data', 'conjugations.json');
 const conjDest = path.join(root, 'web', 'conjugations.js');
+const storiesSrc = path.join(root, 'data', 'stories.json');
+const storiesDest = path.join(root, 'web', 'stories.js');
 
 const data = JSON.parse(fs.readFileSync(src, 'utf8'));
 const ids = new Set();
@@ -46,3 +48,27 @@ const conjBanner = [
 ].join('\n');
 fs.writeFileSync(conjDest, `${conjBanner}window.CONJUGATIONS = ${JSON.stringify(conj)};\n`, 'utf8');
 console.log(`OK: çekim verisi -> ${path.relative(root, conjDest)}`);
+
+const rawStories = JSON.parse(fs.readFileSync(storiesSrc, 'utf8'));
+const stories = (Array.isArray(rawStories) ? rawStories : []).map((s, i) => {
+  const paragraphs = (Array.isArray(s.paragraphs) ? s.paragraphs : []).map((p) => ({
+    fa: String(p.fa || '').trim(),
+    pron: String(p.pron || '').trim(),
+    tr: String(p.tr || '').trim(),
+  })).filter((p) => p.fa || p.tr);
+  return {
+    id: String(s.id || `hikaye-${i + 1}`).trim(),
+    level: String(s.level || 'orta').trim().toLowerCase(),
+    titleFa: String(s.titleFa || '').trim(),
+    titleTr: String(s.titleTr || '').trim(),
+    paragraphs,
+  };
+}).filter((s) => ['zor', 'orta', 'kolay'].includes(s.level) && (s.titleFa || s.titleTr || s.paragraphs.length));
+
+const storiesBanner = [
+  '// BU DOSYA OTOMATİK ÜRETİLMİŞTİR — düzenlemeyin.',
+  '// Kaynak: data/stories.json  (sonra: node scripts/embed-dictionary.js)',
+  '',
+].join('\n');
+fs.writeFileSync(storiesDest, `${storiesBanner}window.STORIES = ${JSON.stringify(stories)};\n`, 'utf8');
+console.log(`OK: ${stories.length} hikâye -> ${path.relative(root, storiesDest)}`);

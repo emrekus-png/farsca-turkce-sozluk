@@ -51,6 +51,27 @@
   let favorites = load(KEYS.favs, []);
   let history = load(KEYS.history, []);
 
+  const STORY_LEVELS = [
+    { key: 'zor', label: 'Zor' },
+    { key: 'orta', label: 'Orta' },
+    { key: 'kolay', label: 'Kolay' },
+  ];
+  const STORY_LEVEL_KEYS = new Set(STORY_LEVELS.map((l) => l.key));
+  const STORIES = (Array.isArray(window.STORIES) ? window.STORIES : [])
+    .map((s, i) => ({
+      id: String(s.id || `hikaye-${i + 1}`),
+      level: String(s.level || '').trim().toLowerCase(),
+      titleFa: String(s.titleFa || '').trim(),
+      titleTr: String(s.titleTr || '').trim(),
+      paragraphs: (Array.isArray(s.paragraphs) ? s.paragraphs : []).map((p) => ({
+        fa: String(p.fa || '').trim(),
+        pron: String(p.pron || '').trim(),
+        tr: String(p.tr || '').trim(),
+      })).filter((p) => p.fa || p.tr),
+    }))
+    .filter((s) => STORY_LEVEL_KEYS.has(s.level) && (s.titleFa || s.titleTr || s.paragraphs.length));
+  let storyLevel = 'zor';
+
   const $ = (sel, root) => (root || document).querySelector(sel);
   const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
 
@@ -704,6 +725,69 @@
     });
   }
 
+  function renderReading() {
+    const box = $('#readingList');
+    box.innerHTML = '';
+    $$('#readingLevels .chip').forEach((b) => b.classList.toggle('active', b.dataset.level === storyLevel));
+
+    const list = STORIES.filter((s) => s.level === storyLevel);
+    $('#readingInfo').textContent = list.length ? list.length + ' hikâye' : '';
+
+    if (!list.length) {
+      const e = el('div', 'empty');
+      e.appendChild(el('div', 'big', '📖'));
+      e.appendChild(el('div', '', STORIES.length ? 'Bu seviyede henüz hikâye yok.' : 'Henüz hikâye eklenmedi.'));
+      if (!STORIES.length) e.appendChild(el('div', 'small', 'Hikâyeler data/stories.json dosyasına eklenir.'));
+      box.appendChild(e);
+      return;
+    }
+
+    list.forEach((story, i) => {
+      const wrap = el('article', 'story-card');
+
+      const summary = el('button', 'story-summary');
+      summary.type = 'button';
+      summary.setAttribute('aria-expanded', 'false');
+      const title = el('span', 'story-title');
+      const fa = el('span', 'story-title-fa', story.titleFa || `Hikâye ${i + 1}`);
+      fa.setAttribute('dir', 'rtl');
+      title.append(fa, el('span', 'story-title-tr', story.titleTr || ''));
+      const arrow = el('span', 'story-arrow', '▾');
+      summary.append(title, arrow);
+
+      const body = el('div', 'story-body');
+      body.hidden = true;
+      if (!story.paragraphs.length) {
+        body.appendChild(el('div', 'muted small', 'Bu hikâyede metin yok.'));
+      } else {
+        story.paragraphs.forEach((p) => {
+          const para = el('div', 'story-paragraph');
+          if (p.fa) {
+            const faLine = el('div', 'story-fa', p.fa);
+            faLine.setAttribute('dir', 'rtl');
+            para.appendChild(faLine);
+          }
+          if (p.pron) para.appendChild(el('div', 'story-pron', p.pron));
+          if (p.tr) para.appendChild(el('div', 'story-tr', p.tr));
+          body.appendChild(para);
+        });
+      }
+
+      summary.addEventListener('click', () => {
+        const willOpen = body.hidden;
+        $$('#readingList .story-body').forEach((x) => { x.hidden = true; });
+        $$('#readingList .story-arrow').forEach((x) => { x.textContent = '▾'; });
+        $$('#readingList .story-summary').forEach((x) => x.setAttribute('aria-expanded', 'false'));
+        body.hidden = !willOpen;
+        arrow.textContent = willOpen ? '▴' : '▾';
+        summary.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+      });
+
+      wrap.append(summary, body);
+      box.appendChild(wrap);
+    });
+  }
+
   function toggleFav(id) {
     if (favorites.includes(id)) favorites = favorites.filter((x) => x !== id);
     else favorites = [id].concat(favorites);
@@ -720,6 +804,7 @@
     $$('.view').forEach((v) => v.classList.toggle('active', v.id === 'view-' + name));
     if (name === 'favorites') renderFavorites();
     if (name === 'history') renderHistory();
+    if (name === 'reading') renderReading();
   }
 
   /* ============================== Quiz ============================== */
@@ -1092,6 +1177,10 @@
 
   function bind() {
     $$('.tab').forEach((b) => b.addEventListener('click', () => switchTab(b.dataset.tab)));
+    $$('#readingLevels .chip').forEach((b) => b.addEventListener('click', () => {
+      storyLevel = b.dataset.level;
+      renderReading();
+    }));
 
     // Yönetici girişi: üstteki başlığa basılı tut (normal kullanıcıya görünmez).
     const brand = $('#brand');
@@ -1264,4 +1353,5 @@
   renderResults();
   renderFavorites();
   renderHistory();
+  renderReading();
 })();

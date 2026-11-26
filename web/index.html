@@ -28,6 +28,7 @@
       <button class="tab active" data-tab="search" type="button">Sözlük</button>
       <button class="tab" data-tab="favorites" type="button">Favoriler <span class="count" id="favCount">0</span></button>
       <button class="tab" data-tab="history" type="button">Geçmiş</button>
+      <button class="tab" data-tab="reading" type="button">Okuma Pratiği</button>
       <button class="tab" data-tab="quiz" type="button">Quiz</button>
     </nav>
 
@@ -77,6 +78,20 @@
           <button class="link-btn" id="btnClearHistory" type="button">Temizle</button>
         </div>
         <div id="historyList" class="history-list"></div>
+      </section>
+
+      <!-- OKUMA PRATİĞİ -->
+      <section class="view" id="view-reading">
+        <div class="panel-head">
+          <h2>Okuma pratiği</h2>
+          <span class="muted small" id="readingInfo"></span>
+        </div>
+        <div class="reading-levels" id="readingLevels">
+          <button class="chip active" data-level="zor" type="button">Zor</button>
+          <button class="chip" data-level="orta" type="button">Orta</button>
+          <button class="chip" data-level="kolay" type="button">Kolay</button>
+        </div>
+        <div class="reading-list" id="readingList"></div>
       </section>
 
       <!-- QUIZ -->
@@ -279,6 +294,7 @@
 
   <script src="conjugations.js"></script>
   <script src="dictionary.js"></script>
+  <script src="stories.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
