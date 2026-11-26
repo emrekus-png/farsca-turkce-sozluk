@@ -8,7 +8,7 @@
 - Telaffuz: Farsça kelimenin yanında küçük, soluk Latin harfli okunuş; isteğe bağlı örnek cümleler
 - Favoriler, arama geçmişi, kelime kopyalama, 10 soruluk quiz
 - Tek tek kelime ekleme herkese açık; toplu text dosyası yönetici PIN'iyle korunur
-- Fiil kartlarındaki **noktalara** dokununca 6 kişilik çekim ekranı: Farsça + Latin okunuş + Türkçe karşılık
+- Fiil kartındaki **çekim ikonuna** dokununca 6 kişilik çekim ekranı: Farsça + Latin okunuş + Türkçe karşılık
 - Uygulama adı, alt başlık, tema, renk, yazı boyutu ayarları
 - Tamamen çevrimdışı; veriler yalnızca cihazında saklanır
 
@@ -100,9 +100,9 @@ fa,tr,pron,pos,cat
 
 ### Fiil çekimleri
 
-Gömülü fiillerin ve sonradan eklediğin fiillerin kartında, yıldız ve kopya ikonlarının **başında** bir çekim ikonu görünür. Bu ikona dokununca ayrı ekranda **Geçmiş / Şimdi / Gelecek / Emir** sekmeleri açılır; her sekmede ben, sen, o, biz, siz, onlar için Farsça + Latin okunuş + Türkçe karşılık gösterilir. Farsça/Latin sola, Türkçe en sağa hizalanır. Yalnızca olumlu çekimler gösterilir; Emir sekmesinde sadece **sen** ve **siz** satırları vardır.
+Gömülü fiillerin ve sonradan eklediğin fiillerin kartında, yıldız ve kopya ikonlarının **başında** bir çekim ikonu görünür. Bu ikona dokununca ayrı ekranda **Geçmiş / Şimdi / Gelecek / Emir** sekmeleri açılır; her sekmede ben, sen, o, biz, siz, onlar için Farsça + Latin okunuş + Türkçe karşılık gösterilir. Farsça/Latin sola, Türkçe en sağa hizalanır. Yalnızca olumlu çekimler gösterilir; Emir sekmesinde sadece **sen** ve **siz** satırları vardır. `داشتن` ve `هست/است` için Emir sekmesi gösterilmez.
 
-Kurallar: `می` fiilden ayrı yazılır; bileşik fiillerde yardımcı fiilden önce gelir (`کار می کنم`, `کار خواهم کرد`). Şimdiki zaman ve emirde şimdiki kök (`گیرم`), geçmiş/gelecekte geçmiş kök (`گرفتم`) kullanılır. `هست/است` için `می` eklenmez. Bileşik emirde önek korunur: `ادامه بده`, `ادامه بدهید`.
+Kurallar: `می` fiilden ayrı yazılır; bileşik fiillerde yardımcı fiilden önce gelir (`کار می کنم`, `کار خواهم کرد`). Şimdiki zaman ve emirde şimdiki kök (`گیرم`), geçmiş/gelecekte geçmiş kök (`گرفتم`) kullanılır. `داشتن` ve `هست/است` şimdiki zaman çekimlerinde `می` almaz: `دارم`, `هستم`. Bileşik emirde önek korunur: `ادامه بده`, `ادامه بدهید`.
 
 Yeni eklediğin bir kelimenin fiil sayılması için **Tür: fiil** yazman yeterlidir; ya da Farsça `-ن` ile, Türkçe `mak/mek` ile bitmesi de yeterli sayılır. Düzensiz fiillerin kökleri `data/conjugations.json` dosyasındadır; bilinmeyen fiillerde okunuş ve Türkçe karşılık kural ile yaklaşık üretilir.
 

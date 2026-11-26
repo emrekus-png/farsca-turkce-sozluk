@@ -83,6 +83,12 @@
       .trim();
   }
 
+  function normalizeKeyMap(obj, fn) {
+    const out = {};
+    Object.keys(obj || {}).forEach((k) => { out[fn(k)] = obj[k]; });
+    return out;
+  }
+
   const FA_RE = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
 
   function detectDir(q) {
@@ -129,13 +135,15 @@
   /* ============================== Fiil çekimleri ============================== */
 
   const CONJ = window.CONJUGATIONS || {};
-  const C_STEMS = CONJ.stems || {};
-  const C_TR = CONJ.trOverride || {};
-  const C_ALIAS = CONJ.aliases || {};
-  const C_TR_ALIAS = CONJ.trAlias || {};
+  const C_STEMS = normalizeKeyMap(CONJ.stems || {}, normFa);
+  const C_TR = normalizeKeyMap(CONJ.trOverride || {}, normTr);
+  const C_ALIAS = normalizeKeyMap(CONJ.aliases || {}, normFa);
+  const C_TR_ALIAS = normalizeKeyMap(CONJ.trAlias || {}, normTr);
   const C_COPULA = CONJ.copula || { keys: [], rows: [] };
   const C_CP = CONJ.copulaPersons || {};
   const COP_KEYS = new Set((C_COPULA.keys || []).map(normFa));
+  const NO_IMP = new Set((CONJ.noImperative || []).map(normFa));
+  const NO_PRES_POS = new Set((CONJ.noPresentPosParticle || []).map(normFa));
   const P = CONJ.particles || {};
   const POS_PARTICLE = P.pos || 'می';
   const P_WANT = P.want || ['خواهم', 'خواهی', 'خواهد', 'خواهیم', 'خواهید', 'خواهند'];
@@ -157,12 +165,19 @@
   ];
   let conjState = { data: null, tense: 'past' };
 
+  function canonicalFa(raw) {
+    let key = normFa(raw);
+    if (C_ALIAS[key]) key = C_ALIAS[key];
+    if (COP_KEYS.has(key)) key = 'هست';
+    return key;
+  }
+
   // Fiil: Tür "fiil" ise ya da Farsça mastar (-n) + Türkçe mastar (mak/mek) ise.
   function isVerb(entry) {
     if (!entry) return false;
     const fa = normFa(entry.fa);
     if (!fa) return false;
-    if (COP_KEYS.has(fa)) return true;
+    if (COP_KEYS.has(canonicalFa(fa))) return true;
     const word = fa.split(' ').pop();
     const pos = normTr(entry.pos || '');
     const tr = normTr(entry.tr || '');
@@ -202,9 +217,7 @@
   }
 
   function stemOf(verbFa, verbPron, compound) {
-    let key = normFa(verbFa);
-    if (C_ALIAS[key]) key = C_ALIAS[key];
-    if (COP_KEYS.has(key)) key = 'هست';
+    const key = canonicalFa(verbFa);
     const known = C_STEMS[key];
     if (known) return Object.assign({}, known, { compound });
     return guessStems(verbFa, verbPron, compound);
@@ -305,7 +318,7 @@
   }
 
   function conjugateFull(entry) {
-    const faKey = normFa(entry.fa);
+    const faKey = canonicalFa(entry.fa);
     if (COP_KEYS.has(faKey)) {
       return {
         title: entry.fa,
@@ -314,7 +327,7 @@
           past: C_CP.past || [],
           pres: C_CP.pres || [],
           fut: C_CP.fut || [],
-          imp: C_CP.imp || [],
+          imp: [],
         },
       };
     }
@@ -322,6 +335,9 @@
     const faSplit = splitWord(entry.fa);
     const pronSplit = splitWord(entry.pron);
     const compound = !!faSplit.prefix;
+    const verbKey = canonicalFa(faSplit.last);
+    const noImp = NO_IMP.has(verbKey);
+    const noPresPos = NO_PRES_POS.has(verbKey);
     const s = stemOf(faSplit.last, pronSplit.last, compound);
     const tr = trForms(entry.tr);
 
@@ -337,8 +353,10 @@
 
     const nowEnds = ['م', 'ی', 'د', 'یم', 'ید', 'ند'];
     const nowLatEnds = ['am', 'i', 'ad', 'im', 'id', 'and'];
-    const presFa = nowEnds.map((x) => pfx + POS_PARTICLE + ' ' + nowBase + x);
-    const presPron = nowLatEnds.map((x) => pfxPron + posPron + ' ' + pNowBase + x);
+    const presFaPfx = noPresPos ? '' : POS_PARTICLE + ' ';
+    const presLatPfx = noPresPos ? '' : posPron + ' ';
+    const presFa = nowEnds.map((x) => pfx + presFaPfx + nowBase + x);
+    const presPron = nowLatEnds.map((x) => pfxPron + presLatPfx + pNowBase + x);
 
     const pastFa = faEnds.map((x) => pfx + s.past + x);
     const pastPron = [s.p1Past].concat(['i', '', 'im', 'id', 'and'].map((x) => pPastBase + x))
@@ -378,7 +396,7 @@
         past: rows(pastFa, pastPron, trPast),
         pres: rows(presFa, presPron, trPres),
         fut: rows(futFa, futPron, trFut),
-        imp: impRows(impPosFa, impPosPron, impTrPos),
+        imp: noImp ? [] : impRows(impPosFa, impPosPron, impTrPos),
       },
     };
   }
@@ -393,7 +411,7 @@
     body.appendChild(el('div', 'conj-note', data.note));
 
     const tabs = el('div', 'conj-tabs');
-    TENSES.forEach((t) => {
+    TENSES.filter((t) => (data.tenses[t.key] || []).length).forEach((t) => {
       const b = el('button', 'conj-tab' + (conjState.tense === t.key ? ' active' : ''), t.label);
       b.type = 'button';
       b.addEventListener('click', () => {

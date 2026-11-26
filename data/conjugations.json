@@ -1,4 +1,12 @@
 {
+    "noImperative":  [
+                         "داشتن",
+                         "هست"
+                     ],
+    "noPresentPosParticle":  [
+                                 "داشتن",
+                                 "هست"
+                             ],
     "particles":  {
                       "pos":  "می",
                       "neg":  "نمی",
