@@ -7,11 +7,12 @@
 - Otomatik yön algılama: Farsça yazarsan Farsça→Türkçe, Türkçe yazarsan Türkçe→Farsça
 - Telaffuz: Farsça kelimenin yanında küçük, soluk Latin harfli okunuş; isteğe bağlı örnek cümleler
 - Favoriler, arama geçmişi, kelime kopyalama, 10 soruluk quiz
-- Tek tek kelime ekleme herkese açık; toplu text dosyası yönetici PIN'iyle korunur
+- Tek tek kelime ekleme herkese açık; yeni kelimeler **onaya gönderilir**, yönetici onaylayınca herkes görür
+- Yönetici: PIN + Firebase girişiyle **onay kuyruğu**, bulut kelime düzenleme/silme ve toplu ekleme
+- İnternet olmadan da çalışır; kelimeler cihazda saklanır, bağlantı gelince bulutla senkron olur
 - Fiil kartındaki **çekim ikonuna** dokununca 6 kişilik çekim ekranı: Farsça + Latin okunuş + Türkçe karşılık
 - **Okuma Pratiği** bölümü: Zor → Orta → Kolay seviyelerinde hikâyelerle okuma çalışması
 - Uygulama adı, alt başlık, tema, renk, yazı boyutu ayarları
-- Tamamen çevrimdışı; veriler yalnızca cihazında saklanır
 
 ## 1) Bilgisayarda önizleme (opsiyonel)
 
@@ -67,7 +68,7 @@ GitHub'a push ettiğinde bu adım otomatik çalışır.
 
 1. Arama ekranındaki **＋ Kelime ekle** bağlantısına dokun.
 2. Farsça ve Türkçe alanlarını doldur; istersen telaffuz, tür ve örnek cümleleri de yaz → **Kelimeyi kaydet**.
-3. Kelime anında aramada görünür. Aynı kelime varsa senin versiyonun gömülü olanı ezer. PIN gerekmez.
+3. Kelime anında cihazında görünür ve üzerinde **“Onay bekliyor”** rozeti çıkar. İnternet varsa Firebase'e gönderilir; yönetici onaylayınca diğer cihazlarda da görünür. PIN gerekmez. Aynı kelime varsa senin versiyonun gömülü olanı ezer.
 
 ### Telefondan toplu text dosyası (sadece sen)
 
@@ -78,11 +79,15 @@ GitHub'a push ettiğinde bu adım otomatik çalışır.
    خانه - ev - xane
    ```
    Yanlış sıra (`کتاب - ketab - kitap`) telaffuz ile anlamı yer değiştirir. Uygulama, gömülü sözlükten bildiği kelimelerde sıra hatasını otomatik düzeltmeye çalışır; yine de doğru sırayı kullan.
-2. Uygulamada üstteki **başlığa basılı tut** (yaklaşık 1 saniye) → PIN gir (varsayılan: `1234`).
-3. Açılan **Toplu kelime ekle** ekranından dosyayı seç veya satırları yapıştır → **Toplu içe aktar**.
-4. **Her satır aramada ayrı bir kelime kartı olarak çıkar.** “Toplu ekle” bağlantısı ve giriş, yönetici olmadan görünmez.
+2. Uygulamada üstteki **başlığa basılı tut** (yaklaşık 1 saniye) → PIN gir (varsayılan: `1234`) → **Firebase e-posta/şifre** ile giriş yap.
+3. Üstteki **Bulut yönetimi** bağlantısından:
+   - **Onay kuyruğu**: kullanıcıların gönderdiği kelimeleri **Onayla** / **Reddet**.
+   - **Bulut kelimeleri**: onaylı kelimeleri **Düzenle** / **Sil**.
+   - **Toplu ekle**: girdiğin kelimeler doğrudan onaylı olarak buluta yazılır (tek kelime ekleme de yöneticiyken doğrudan onaylıya gider).
+   - **Senkronize et**: buluttaki onaylı kelimeleri cihaza çeker.
+4. “Toplu ekle” ve “Bulut yönetimi” bağlantıları giriş yapmadan görünmez.
 
-PIN'i değiştirmek için `web/app.js` dosyasının üstündeki `const ADMIN_PIN = '1234';` satırını düzenle, commit + push et ve yeni APK'yı kur. Uygulama tamamen cihazda çalıştığı için bu PIN ciddi bir güvenlik bariyeri değil; günlük kullanım içindir.
+PIN'i değiştirmek için `web/app.js` dosyasının üstündeki `const ADMIN_PIN = '1234';` satırını düzenle, commit + push et ve yeni APK'yı kur. Bu PIN yalnızca arayüz kapısıdır; asıl güvenlik Firebase Authentication ve Firestore kurallarındadır.
 
 JSON/CSV de desteklenir; her satır yine ayrı bir kelime olur:
 
@@ -133,7 +138,45 @@ Format:
 - `pron` isteğe bağlıdır; boş bırakılabilir.
 - Dosyayı değiştirdikten sonra `node scripts/embed-dictionary.js` çalıştırılır; GitHub Actions derlemesi bunu otomatik yapar ve `web/stories.js` dosyasını yeniler.
 
-## 4) Uygulama kimliğini değiştirme
+## 4) Firebase bulut senkronizasyonu
+
+Kelimeler cihazda tutulur; internet varsa Firebase Firestore ile senkron olur. Firebase SDK dosyaları `web/vendor/` altında APK'ya gömülüdür, CDN kullanılmaz.
+
+### Firebase Console'da bir kez yapılacaklar
+
+1. https://console.firebase.google.com → **Proje ekle** (Analytics kapalı).
+2. **Firestore Database** → Veritabanı oluştur (Üretim modu, varsayılan bölge).
+3. **Authentication** → E-posta/Şifre'yi etkinleştir → **Kullanıcı ekle** (senin admin hesabın).
+4. Proje ayarları → Web uygulaması (`</>`) → config değerlerini `web/firebase-config.js` içine yaz.
+5. Firestore → **Kurallar** sekmesine şunu yapıştır (e-postanı değiştir) ve yayınla:
+
+```js
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.email == 'SENIN_ADMIN_EPOSTAN';
+    }
+    match /words/{wordId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /pending/{wordId} {
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
+    }
+  }
+}
+```
+
+### Veri modeli
+
+- `words/{fa::tr}` → onaylı kelimeler; herkes okur, sadece yönetici yazar.
+- `pending/{otomatikId}` → kullanıcı gönderimleri; herkes ekleyebilir, sadece yönetici okur/onaylar/siler.
+- Cihaz önbelleği: `fatr.cloud.v1` (onaylı), `fatr.submitted.v1` (bekleyen rozeti), `fatr.outbox.v1` (çevrimdışı kuyruk).
+
+## 5) Uygulama kimliğini değiştirme
 
 - `capacitor.config.json`: `appId` (Play Store için benzersiz paket adı) ve `appName`
 - `web/manifest.json`: ad ve tema renkleri
@@ -148,6 +191,9 @@ fa-tr-sozluk/
 ├── scripts/embed-dictionary.js # JSON -> web/dictionary.js, conjugations.js, stories.js
 ├── scripts/serve.js            # yerel önizleme sunucusu
 ├── web/                        # uygulamanın kendisi (HTML/CSS/JS)
+│   ├── db.js                   # Firestore katmanı, çevrimdışı önbellek, onay kuyruğu
+│   ├── firebase-config.js      # Firebase proje anahtarları (API key herkese açıktır)
+│   └── vendor/                 # yerel Firebase SDK (APK içinde, CDN yok)
 ├── capacitor.config.json       # APK ayarları
 ├── package.json
 └── .github/workflows/build-apk.yml

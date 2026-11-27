@@ -8,6 +8,9 @@
     custom: 'fatr.custom.v1',
     favs: 'fatr.favorites.v1',
     history: 'fatr.history.v1',
+    cloud: 'fatr.cloud.v1',
+    submitted: 'fatr.submitted.v1',
+    outbox: 'fatr.outbox.v1',
   };
 
   /* ============ YÖNETİCİ PIN'İ — KENDİ PIN'İNİ BURAYA YAZ ============ */
@@ -50,6 +53,12 @@
   let custom = load(KEYS.custom, []);
   let favorites = load(KEYS.favs, []);
   let history = load(KEYS.history, []);
+  let approvedCloud = load(KEYS.cloud, []);
+  let submittedIds = load(KEYS.submitted, []);
+  let outbox = load(KEYS.outbox, []);
+  let cloudAuthed = false;
+  let cloudTab = 'queue';
+  let editingCloudId = null;
 
   const STORY_LEVELS = [
     { key: 'zor', label: 'Zor' },
@@ -468,9 +477,11 @@
   function buildPool() {
     const seed = (window.SEED_DICTIONARY || []).map((x) => Object.assign({}, x, { custom: false }));
     const customPrepared = custom.map((x) => Object.assign({}, x, { custom: true }));
-    const override = new Set(customPrepared.map((x) => x.nfa + '|' + x.ntr));
+    const cloudPrepared = approvedCloud.map((x) => Object.assign({}, x, { custom: false }));
+    const localWords = customPrepared.concat(cloudPrepared);
+    const override = new Set(localWords.map((x) => normFa(x.fa) + '|' + normTr(x.tr)));
     const base = settings.onlyCustom ? [] : seed.filter((x) => !override.has(normFa(x.fa) + '|' + normTr(x.tr)));
-    const all = customPrepared.concat(base).map(prepare);
+    const all = localWords.concat(base).map(prepare);
     const seen = new Set();
     return all.filter((x) => {
       if (!x.fa || !x.tr || seen.has(x.id)) return false;
@@ -601,6 +612,7 @@
     if (entry.pos) meta.appendChild(el('span', 'tag pos', entry.pos));
     if (entry.cat) meta.appendChild(el('span', 'tag', entry.cat));
     if (entry.custom) meta.appendChild(el('span', 'tag', 'senin eklediğin'));
+    if (submittedIds.includes(entry.id)) meta.appendChild(el('span', 'cloud-wait', 'Onay bekliyor'));
     if (meta.children.length) main.appendChild(meta);
 
     if (settings.examples && (entry.exFa || entry.exTr)) {
@@ -1033,11 +1045,13 @@
     })));
   }
 
-  function upsert(items) {
+  function upsert(items, skipCloud) {
     const map = new Map(custom.map((x) => [x.id, prepare(x)]));
+    const before = new Set(custom.map((x) => x.id));
     items.forEach((x) => map.set(x.id, x));
     custom = Array.from(map.values());
     saveCustom();
+    if (!skipCloud) items.forEach(function (x) { if (!before.has(x.id)) queueForCloud(x); });
     refreshPool();
     renderResults();
     renderFavorites();
@@ -1055,6 +1069,7 @@
       $('#importMsg').textContent = 'Geçerli kelime bulunamadı. "fa" ve "tr" alanları gerekli.';
       return;
     }
+    if (cloudAuthed && isAdmin) { cloudBulkImport(text); return; }
     upsert(items);
     const skipped = lastImportSkipped ? ' · ' + lastImportSkipped + ' satır atlandı (Farsça veya Türkçe eksik)' : '';
     $('#importMsg').textContent = items.length + ' satır = ' + items.length + ' ayrı kelime eklendi/güncellendi. Toplam: ' + pool.length + skipped;
@@ -1069,18 +1084,33 @@
       $('#addOneMsg').textContent = 'Farsça ve Türkçe alanları zorunlu.';
       return;
     }
-    const entry = prepare({
-      fa, tr,
-      pron: $('#newPron').value.trim(),
-      pos: $('#newPos').value.trim(),
-      exFa: $('#newExFa').value.trim(),
-      exTr: $('#newExTr').value.trim(),
-      custom: true,
-    });
+    const pron = $('#newPron').value.trim();
+    const pos = $('#newPos').value.trim();
+    const exFa = $('#newExFa').value.trim();
+    const exTr = $('#newExTr').value.trim();
+    const entry = prepare({ fa, tr, pron, pos, exFa, exTr, custom: true });
+    const clearForm = function () {
+      ['#newFa', '#newTr', '#newPron', '#newPos', '#newExFa', '#newExTr'].forEach((s) => { $(s).value = ''; });
+      $('#newFa').focus();
+    };
+
+    if (cloudAuthed && isAdmin && window.AppCloud) {
+      $('#addOneMsg').textContent = 'Buluta yazılıyor…';
+      try {
+        AppCloud.upsertApproved([{ fa: fa, tr: tr, pron: pron, pos: pos, cat: '', exFa: exFa, exTr: exTr }]).then(function () {
+          upsert([entry], true);
+          clearForm();
+          $('#addOneMsg').textContent = 'Onaylı olarak eklendi: ' + fa + ' — ' + tr;
+          toast('Kelime onaylı eklendi');
+          syncCloud();
+        }).catch(function (e) { $('#addOneMsg').textContent = e.message || 'Bulut hatası'; });
+      } catch (e) { $('#addOneMsg').textContent = e.message || 'Bağlantı hatası'; }
+      return;
+    }
+
     upsert([entry]);
-    ['#newFa', '#newTr', '#newPron', '#newPos', '#newExFa', '#newExTr'].forEach((s) => { $(s).value = ''; });
-    $('#addOneMsg').textContent = 'Eklendi: ' + fa + ' — ' + tr + ' · Toplam: ' + pool.length;
-    $('#newFa').focus();
+    clearForm();
+    $('#addOneMsg').textContent = 'Eklendi: ' + fa + ' — ' + tr + ' · Onay bekliyor · Toplam: ' + pool.length;
     toast('Kelime eklendi');
   }
 
@@ -1149,13 +1179,21 @@
   function adminLogin() {
     const value = $('#adminPin').value.trim();
     if (value === ADMIN_PIN) {
-      isAdmin = true;
-      applyAdmin();
       $('#adminPin').value = '';
       $('#adminMsg').textContent = '';
       closeSheet('adminSheet');
-      openSheet('importSheet');
-      toast('Yönetici girişi yapıldı');
+      if (window.AppCloud && AppCloud.isReady()) {
+        $('#cloudEmail').value = '';
+        $('#cloudPass').value = '';
+        $('#cloudLoginMsg').textContent = '';
+        openSheet('cloudLoginSheet');
+        setTimeout(function () { $('#cloudEmail').focus(); }, 60);
+      } else {
+        isAdmin = true;
+        applyAdmin();
+        openSheet('importSheet');
+        toast('Yönetici girişi yapıldı');
+      }
     } else {
       $('#adminMsg').textContent = 'PIN hatalı.';
       $('#adminPin').value = '';
@@ -1165,8 +1203,255 @@
 
   function adminLogout() {
     isAdmin = false;
+    cloudAuthed = false;
     applyAdmin();
+    try { if (window.AppCloud) AppCloud.signOut(); } catch (e) {}
     toast('Yönetici çıkışı yapıldı');
+  }
+
+  /* ============================== Bulut / Firebase ============================== */
+
+  function saveSubmitted() { save(KEYS.submitted, submittedIds); }
+  function saveOutbox() { save(KEYS.outbox, outbox); }
+
+  // Kullanıcının eklediği kelimeyi yerel kuyruğa al ve buluta göndermeyi dene.
+  function queueForCloud(entry) {
+    const id = entry.id || (normFa(entry.fa) + '::' + normTr(entry.tr));
+    if (!submittedIds.includes(id)) { submittedIds.push(id); saveSubmitted(); }
+    if (!outbox.some((x) => x.id === id)) {
+      outbox.push({ id: id, fa: entry.fa, tr: entry.tr, pron: entry.pron, pos: entry.pos, cat: entry.cat, exFa: entry.exFa, exTr: entry.exTr });
+      saveOutbox();
+    }
+    syncCloud();
+  }
+
+  // Kuyruktaki kelimeleri gönder, onaylı kelimeleri çek, arayüzü yenile.
+  function syncCloud() {
+    if (!window.AppCloud || !AppCloud.isReady()) return;
+    const writes = outbox.slice().map(function (item) {
+      try {
+        return AppCloud.submit(item).then(function () {
+          outbox = outbox.filter(function (x) { return x.id !== item.id; });
+          saveOutbox();
+        }).catch(function () {});
+      } catch (e) { return Promise.resolve(); }
+    });
+    Promise.all(writes).then(function () {
+      try { return AppCloud.pull(); } catch (e) { return Promise.resolve(null); }
+    }).then(function (list) {
+      if (!Array.isArray(list)) return;
+      approvedCloud = list;
+      save(KEYS.cloud, list);
+      const approvedIds = new Set(list.map(function (x) { return x.wordId || x.id; }));
+      submittedIds = submittedIds.filter(function (id) { return !approvedIds.has(id); });
+      saveSubmitted();
+      refreshPool();
+      renderResults();
+      renderFavorites();
+      if (cloudAuthed) renderCloudAdmin();
+    }).catch(function () {});
+  }
+
+  function cloudLogin() {
+    if (!window.AppCloud || !AppCloud.isReady()) {
+      $('#cloudLoginMsg').textContent = 'Firebase bağlantısı hazır değil.';
+      return;
+    }
+    const email = $('#cloudEmail').value.trim();
+    const pass = $('#cloudPass').value;
+    $('#cloudLoginMsg').textContent = 'Giriş yapılıyor…';
+    try {
+      AppCloud.signIn(email, pass).then(function (res) {
+        if (!res.admin) {
+          $('#cloudLoginMsg').textContent = 'Bu hesap yönetici değil.';
+          try { AppCloud.signOut(); } catch (e) {}
+          return;
+        }
+        cloudAuthed = true;
+        isAdmin = true;
+        applyAdmin();
+        $('#cloudPass').value = '';
+        $('#cloudLoginMsg').textContent = '';
+        closeSheet('adminSheet');
+        closeSheet('cloudLoginSheet');
+        openCloudAdmin();
+        toast('Yönetici girişi yapıldı');
+      }).catch(function (e) {
+        $('#cloudLoginMsg').textContent = e.message || 'Giriş başarısız.';
+      });
+    } catch (e) {
+      $('#cloudLoginMsg').textContent = e.message || 'Bağlantı hatası.';
+    }
+  }
+
+  function cloudLogout() {
+    cloudAuthed = false;
+    isAdmin = false;
+    applyAdmin();
+    closeSheet('cloudAdminSheet');
+    try { if (window.AppCloud) AppCloud.signOut(); } catch (e) {}
+    toast('Çıkış yapıldı');
+  }
+
+  function openCloudAdmin() {
+    cloudTab = 'queue';
+    $$('[data-cloud-tab]').forEach(function (b) { b.classList.toggle('active', b.dataset.cloudTab === 'queue'); });
+    $('#cloudStatus').textContent = 'Bağlanıyor…';
+    openSheet('cloudAdminSheet');
+    renderCloudAdmin();
+  }
+
+  function renderCloudAdmin() {
+    if (!cloudAuthed) return;
+    if (cloudTab === 'queue') renderCloudQueue();
+    else renderCloudWords();
+  }
+
+  function cloudItem(w) {
+    const item = el('div', 'cloud-item');
+    item.appendChild(el('div', 'cw-fa', w.fa));
+    item.appendChild(el('div', 'cw-tr', w.tr));
+    if (w.pron) item.appendChild(el('div', 'cw-pron', w.pron));
+    const actions = el('div', 'cw-actions');
+    item.appendChild(actions);
+    return { item: item, actions: actions };
+  }
+
+  function renderCloudQueue() {
+    const box = $('#cloudList');
+    box.innerHTML = '';
+    $('#cloudStatus').textContent = 'Bekleyen kelimeler yükleniyor…';
+    try {
+      AppCloud.pullPending().then(function (list) {
+        $('#cloudStatus').textContent = AppCloud.currentUser() + ' · ' + list.length + ' bekleyen kelime';
+        if (!list.length) {
+          box.appendChild(el('div', 'cloud-empty', 'Onay bekleyen kelime yok.'));
+          return;
+        }
+        const frag = document.createDocumentFragment();
+        list.forEach(function (w) {
+          const row = cloudItem(w);
+          const ok = el('button', 'cloud-btn primary', 'Onayla');
+          ok.type = 'button';
+          ok.addEventListener('click', function () {
+            ok.disabled = true;
+            try {
+              AppCloud.approve(w).then(function () {
+                toast('Onaylandı');
+                renderCloudQueue();
+                syncCloud();
+              }).catch(function (e) { ok.disabled = false; alert(e.message || 'Onaylama hatası'); });
+            } catch (e) { ok.disabled = false; alert(e.message || 'Onaylama hatası'); }
+          });
+          const no = el('button', 'cloud-btn danger', 'Reddet');
+          no.type = 'button';
+          no.addEventListener('click', function () {
+            if (!confirm('Bu kelime reddedilecek. Emin misin?')) return;
+            try {
+              AppCloud.reject(w.id).then(function () {
+                toast('Reddedildi');
+                renderCloudQueue();
+              }).catch(function (e) { alert(e.message || 'Silme hatası'); });
+            } catch (e) { alert(e.message || 'Silme hatası'); }
+          });
+          row.actions.append(ok, no);
+          frag.appendChild(row.item);
+        });
+        box.appendChild(frag);
+      }).catch(function (e) {
+        $('#cloudStatus').textContent = e.message || 'Yükleme hatası';
+      });
+    } catch (e) {
+      $('#cloudStatus').textContent = e.message || 'Bağlantı hatası';
+    }
+  }
+
+  function renderCloudWords() {
+    const box = $('#cloudList');
+    box.innerHTML = '';
+    const list = approvedCloud.slice().sort(function (a, b) { return String(a.tr).localeCompare(String(b.tr), 'tr'); });
+    $('#cloudStatus').textContent = AppCloud.currentUser() + ' · ' + list.length + ' onaylı kelime';
+    if (!list.length) {
+      box.appendChild(el('div', 'cloud-empty', 'Henüz onaylı kelime yok. Önce senkronize et.'));
+      return;
+    }
+    const frag = document.createDocumentFragment();
+    list.forEach(function (w) {
+      const row = cloudItem(w);
+      const edit = el('button', 'cloud-btn', 'Düzenle');
+      edit.type = 'button';
+      edit.addEventListener('click', function () { openCloudEdit(w); });
+      const del = el('button', 'cloud-btn danger', 'Sil');
+      del.type = 'button';
+      del.addEventListener('click', function () {
+        if (!confirm('"' + w.tr + '" silinecek. Emin misin?')) return;
+        try {
+          AppCloud.deleteApproved(w.id).then(function () {
+            toast('Silindi');
+            syncCloud();
+            renderCloudWords();
+          }).catch(function (e) { alert(e.message || 'Silme hatası'); });
+        } catch (e) { alert(e.message || 'Silme hatası'); }
+      });
+      row.actions.append(edit, del);
+      frag.appendChild(row.item);
+    });
+    box.appendChild(frag);
+  }
+
+  function openCloudEdit(w) {
+    editingCloudId = w.id;
+    $('#cloudEditFa').value = w.fa || '';
+    $('#cloudEditTr').value = w.tr || '';
+    $('#cloudEditPron').value = w.pron || '';
+    $('#cloudEditPos').value = w.pos || '';
+    $('#cloudEditExFa').value = w.exFa || '';
+    $('#cloudEditExTr').value = w.exTr || '';
+    $('#cloudEditMsg').textContent = '';
+    closeSheet('cloudAdminSheet');
+    openSheet('cloudEditSheet');
+  }
+
+  function saveCloudEdit() {
+    const fa = $('#cloudEditFa').value.trim();
+    const tr = $('#cloudEditTr').value.trim();
+    if (!fa || !tr) { $('#cloudEditMsg').textContent = 'Farsça ve Türkçe gerekli.'; return; }
+    const data = {
+      fa: fa, tr: tr,
+      pron: $('#cloudEditPron').value.trim(),
+      pos: $('#cloudEditPos').value.trim(),
+      cat: '',
+      exFa: $('#cloudEditExFa').value.trim(),
+      exTr: $('#cloudEditExTr').value.trim(),
+    };
+    $('#cloudEditMsg').textContent = 'Kaydediliyor…';
+    try {
+      AppCloud.updateApproved(editingCloudId, data).then(function () {
+        $('#cloudEditMsg').textContent = '';
+        closeSheet('cloudEditSheet');
+        toast('Güncellendi');
+        syncCloud();
+        openCloudAdmin();
+      }).catch(function (e) { $('#cloudEditMsg').textContent = e.message || 'Hata'; });
+    } catch (e) { $('#cloudEditMsg').textContent = e.message || 'Hata'; }
+  }
+
+  function cloudBulkImport(text) {
+    let items;
+    try { items = parseImport(text); } catch (e) { $('#importMsg').textContent = 'Dosya okunamadı: ' + e.message; return; }
+    if (!items.length) { $('#importMsg').textContent = 'Geçerli kelime bulunamadı.'; return; }
+    const plain = items.map(function (x) {
+      return { fa: x.fa, tr: x.tr, pron: x.pron, pos: x.pos, cat: x.cat, exFa: x.exFa, exTr: x.exTr };
+    });
+    $('#importMsg').textContent = 'Buluta yazılıyor…';
+    try {
+      AppCloud.upsertApproved(plain).then(function () {
+        $('#importMsg').textContent = plain.length + ' kelime buluta eklendi.';
+        closeSheet('importSheet');
+        toast(plain.length + ' kelime buluta eklendi');
+        syncCloud();
+      }).catch(function (e) { $('#importMsg').textContent = e.message || 'Hata'; });
+    } catch (e) { $('#importMsg').textContent = e.message || 'Hata'; }
   }
 
   /* ============================== Olay bağlamaları ============================== */
@@ -1237,7 +1522,7 @@
     $('#btnSettings').addEventListener('click', () => { syncSettingsUI(); openSheet('settingsSheet'); });
     $$('[data-close]').forEach((b) => b.addEventListener('click', () => closeSheet(b.dataset.close)));
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') { closeSheet('settingsSheet'); closeSheet('addSheet'); closeSheet('importSheet'); closeSheet('adminSheet'); closeSheet('conjSheet'); }
+      if (e.key === 'Escape') { closeSheet('settingsSheet'); closeSheet('addSheet'); closeSheet('importSheet'); closeSheet('adminSheet'); closeSheet('cloudLoginSheet'); closeSheet('cloudAdminSheet'); closeSheet('cloudEditSheet'); closeSheet('conjSheet'); }
     });
 
     $('#setAppName').addEventListener('change', (e) => { settings.appName = e.target.value; commitSettings(); });
@@ -1289,6 +1574,38 @@
     $('#btnAdminLogin').addEventListener('click', adminLogin);
     $('#adminPin').addEventListener('keydown', (e) => { if (e.key === 'Enter') adminLogin(); });
     $('#btnAdminLogout').addEventListener('click', adminLogout);
+
+    // Bulut girişi ve veri yönetimi
+    $('#btnCloudAdmin').addEventListener('click', function () {
+      if (!cloudAuthed) {
+        $('#cloudEmail').value = '';
+        $('#cloudPass').value = '';
+        $('#cloudLoginMsg').textContent = '';
+        openSheet('cloudLoginSheet');
+        setTimeout(function () { $('#cloudEmail').focus(); }, 60);
+        return;
+      }
+      openCloudAdmin();
+    });
+    $('#btnCloudLogin').addEventListener('click', cloudLogin);
+    $('#cloudPass').addEventListener('keydown', function (e) { if (e.key === 'Enter') cloudLogin(); });
+    $('#btnCloudLogout').addEventListener('click', cloudLogout);
+    $('#btnCloudSync').addEventListener('click', function () {
+      toast('Senkronize ediliyor…');
+      syncCloud();
+    });
+    $('#btnCloudImport').addEventListener('click', function () {
+      $('#importMsg').textContent = '';
+      openSheet('importSheet');
+    });
+    $('#btnCloudEditSave').addEventListener('click', saveCloudEdit);
+    $$('[data-cloud-tab]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        cloudTab = b.dataset.cloudTab;
+        $$('[data-cloud-tab]').forEach(function (x) { x.classList.toggle('active', x === b); });
+        renderCloudAdmin();
+      });
+    });
 
     const fileInput = $('#fileInput');
     fileInput.addEventListener('change', () => {
@@ -1350,4 +1667,9 @@
   renderFavorites();
   renderHistory();
   renderReading();
+
+  // Firebase başlatılınca onaylı kelimeleri çek, bekleyen kuyruğu gönder.
+  if (window.AppCloud) {
+    AppCloud.init().then(function (ok) { if (ok) syncCloud(); });
+  }
 })();

@@ -53,6 +53,7 @@
             <span class="add-tools">
               <button class="link-btn" id="btnAddOneOpen" type="button">＋ Kelime ekle</button>
               <span class="admin-tools" id="adminTools" hidden>
+                <button class="link-btn quiet" id="btnCloudAdmin" type="button">Bulut yönetimi</button>
                 <button class="link-btn quiet" id="btnImport" type="button">Toplu ekle</button>
                 <button class="link-btn quiet" id="btnAdminLogout" type="button">Çıkış</button>
               </span>
@@ -275,6 +276,69 @@
     </div>
   </div>
 
+  <!-- BULUT YÖNETİCİ GİRİŞİ -->
+  <div class="sheet" id="cloudLoginSheet" hidden>
+    <div class="sheet-backdrop" data-close="cloudLoginSheet"></div>
+    <div class="sheet-panel">
+      <div class="sheet-head">
+        <h2>Bulut girişi</h2>
+        <button class="icon-btn" type="button" data-close="cloudLoginSheet" aria-label="Kapat">×</button>
+      </div>
+      <div class="sheet-body">
+        <p class="muted small">Kelimeleri onaylamak için Firebase hesabınla giriş yap.</p>
+        <label class="field"><span>E-posta</span><input id="cloudEmail" type="email" autocomplete="username" placeholder="ornek@eposta.com"></label>
+        <label class="field"><span>Şifre</span><input id="cloudPass" type="password" autocomplete="current-password" placeholder="••••••••"></label>
+        <button class="primary-btn full" id="btnCloudLogin" type="button">Giriş yap</button>
+        <p class="muted small" id="cloudLoginMsg" role="status"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- BULUT VERİ YÖNETİMİ -->
+  <div class="sheet" id="cloudAdminSheet" hidden>
+    <div class="sheet-backdrop" data-close="cloudAdminSheet"></div>
+    <div class="sheet-panel cloud-panel">
+      <div class="sheet-head">
+        <h2>Bulut veri yönetimi</h2>
+        <button class="icon-btn" type="button" data-close="cloudAdminSheet" aria-label="Kapat">×</button>
+      </div>
+      <div class="sheet-body">
+        <p class="muted small" id="cloudStatus">Bağlanıyor…</p>
+        <div class="cloud-tabs">
+          <button class="chip active" data-cloud-tab="queue" type="button">Onay kuyruğu</button>
+          <button class="chip" data-cloud-tab="words" type="button">Bulut kelimeleri</button>
+        </div>
+        <div id="cloudList" class="cloud-list"></div>
+        <div class="cloud-actions">
+          <button class="link-btn" id="btnCloudSync" type="button">Senkronize et</button>
+          <button class="link-btn" id="btnCloudImport" type="button">Toplu ekle</button>
+          <button class="link-btn quiet" id="btnCloudLogout" type="button">Çıkış</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BULUT KELİME DÜZENLEME -->
+  <div class="sheet" id="cloudEditSheet" hidden>
+    <div class="sheet-backdrop" data-close="cloudEditSheet"></div>
+    <div class="sheet-panel">
+      <div class="sheet-head">
+        <h2>Kelimeyi düzenle</h2>
+        <button class="icon-btn" type="button" data-close="cloudEditSheet" aria-label="Kapat">×</button>
+      </div>
+      <div class="sheet-body">
+        <label class="field"><span>Farsça</span><input id="cloudEditFa" dir="rtl" autocomplete="off"></label>
+        <label class="field"><span>Türkçe</span><input id="cloudEditTr" autocomplete="off"></label>
+        <label class="field"><span>Telaffuz</span><input id="cloudEditPron" autocomplete="off"></label>
+        <label class="field"><span>Tür / kategori</span><input id="cloudEditPos" autocomplete="off"></label>
+        <label class="field"><span>Örnek (Farsça)</span><input id="cloudEditExFa" dir="rtl" autocomplete="off"></label>
+        <label class="field"><span>Örnek (Türkçe)</span><input id="cloudEditExTr" autocomplete="off"></label>
+        <button class="primary-btn full" id="btnCloudEditSave" type="button">Kaydet</button>
+        <p class="muted small" id="cloudEditMsg" role="status"></p>
+      </div>
+    </div>
+  </div>
+
   <!-- FİİL ÇEKİMLERİ -->
   <div class="sheet" id="conjSheet" hidden>
     <div class="sheet-backdrop" data-close="conjSheet"></div>
@@ -292,6 +356,11 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
+  <script src="vendor/firebase-app-compat.js"></script>
+  <script src="vendor/firebase-auth-compat.js"></script>
+  <script src="vendor/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <script src="db.js"></script>
   <script src="conjugations.js"></script>
   <script src="dictionary.js"></script>
   <script src="stories.js"></script>

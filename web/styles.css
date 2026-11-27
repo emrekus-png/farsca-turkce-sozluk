@@ -343,3 +343,31 @@ main { flex: 1; padding: 0 16px 16px; }
   .sheet-panel { border-radius: 20px; max-height: 84vh; }
   .sheet-foot { padding-bottom: 18px; }
 }
+
+/* ---------- Bulut / onay kuyruğu ---------- */
+.cloud-tabs { display: flex; gap: 8px; margin: 10px 0; flex-wrap: wrap; }
+.cloud-list { display: grid; gap: 8px; max-height: 46vh; overflow: auto; }
+.cloud-item {
+  border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px;
+  background: var(--surface); display: grid; gap: 5px;
+}
+.cloud-item .cw-fa {
+  direction: rtl; text-align: right; font-family: "Noto Naskh Arabic", "Amiri", "Scheherazade New", serif;
+  font-size: 1.05rem; line-height: 1.5;
+}
+.cloud-item .cw-tr { font-weight: 600; font-size: .9rem; }
+.cloud-item .cw-pron { font-size: .74rem; color: var(--muted); font-style: italic; }
+.cloud-item .cw-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+.cloud-btn {
+  min-height: 34px; padding: 6px 12px; font-size: .78rem; font-weight: 700;
+  border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text);
+}
+.cloud-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.cloud-btn.danger { color: var(--danger); }
+.cloud-btn:active { opacity: .7; }
+.cloud-empty { text-align: center; color: var(--muted); padding: 24px 10px; font-size: .86rem; }
+.cloud-actions { display: flex; gap: 14px; flex-wrap: wrap; padding-top: 10px; border-top: 1px solid var(--border); }
+.cloud-wait {
+  display: inline-block; font-size: .66rem; background: #fff3cd; color: #7a5b00;
+  border-radius: 99px; padding: 2px 7px; font-weight: 700;
+}
