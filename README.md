@@ -166,15 +166,28 @@ service cloud.firestore {
       allow create: if true;
       allow read, update, delete: if isAdmin();
     }
+    match /meta/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
   }
 }
 ```
+
+> `meta/words` dokümanındaki `rev` numarası, kelime listesi değiştiğinde artar. Uygulama açılışta sadece bu numarayı okur; değişmediyse onaylı kelimeleri yeniden indirmez. **"Senkronize et"** düğmesi her zaman tam çekiş yapar.
 
 ### Veri modeli
 
 - `words/{fa::tr}` → onaylı kelimeler; herkes okur, sadece yönetici yazar.
 - `pending/{otomatikId}` → kullanıcı gönderimleri; herkes ekleyebilir, sadece yönetici okur/onaylar/siler.
-- Cihaz önbelleği: `fatr.cloud.v1` (onaylı), `fatr.submitted.v1` (bekleyen rozeti), `fatr.outbox.v1` (çevrimdışı kuyruk).
+- `meta/words` → kelime listesi sürüm numarası (`rev`); herkes okur, sadece yönetici yazar.
+- Cihaz önbelleği: `fatr.cloud.v1` (onaylı), `fatr.rev.v1` (sürüm), `fatr.submitted.v1` (bekleyen rozeti), `fatr.outbox.v1` (çevrimdışı kuyruk).
+
+### Toplu ekleme ve büyük sözlükler
+
+- Firestore tek seferde en fazla **500 yazma** işlemine izin verir. Toplu ekleme, onay ve red işlemleri otomatik olarak 500'erli parçalara bölünür; binlerce kelime tek seferde eklenebilir.
+- Misafir tek kelime eklemesinde aynı `fa::tr` zaten onaylıysa kelime kuyruğa alınmaz, "Bu kelime zaten sözlükte" mesajı gösterilir. Toplu eklemede bu kontrol yapılmaz; aynı anahtar üzerine yazılır.
+- Yönetici **Bulut kelimeleri** sekmesinde arama yapabilir; liste ilk 200 kelimeyle sınırlıdır ve "Daha fazla göster" ile genişletilir. Böylece 10 bin kelimede ekran donmaz.
 
 ## 5) Uygulama kimliğini değiştirme
 

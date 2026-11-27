@@ -346,6 +346,14 @@ main { flex: 1; padding: 0 16px 16px; }
 
 /* ---------- Bulut / onay kuyruğu ---------- */
 .cloud-tabs { display: flex; gap: 8px; margin: 10px 0; flex-wrap: wrap; }
+.cloud-bulk { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.cloud-search { margin-bottom: 10px; }
+.cloud-search input {
+  width: 100%; min-height: 38px; padding: 8px 10px;
+  border: 1px solid var(--border); border-radius: 10px;
+  background: var(--surface); color: var(--text); font-size: .86rem;
+}
+.cloud-more { text-align: center; padding: 6px 0 2px; }
 .cloud-list { display: grid; gap: 8px; max-height: 46vh; overflow: auto; }
 .cloud-item {
   border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px;

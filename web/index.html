@@ -308,6 +308,13 @@
           <button class="chip active" data-cloud-tab="queue" type="button">Onay kuyruğu</button>
           <button class="chip" data-cloud-tab="words" type="button">Bulut kelimeleri</button>
         </div>
+        <div class="cloud-bulk" id="cloudBulkBar">
+          <button class="cloud-btn primary" id="btnCloudApproveAll" type="button">Tümünü onayla</button>
+          <button class="cloud-btn danger" id="btnCloudRejectAll" type="button">Tümünü reddet</button>
+        </div>
+        <div class="cloud-search" id="cloudSearchBar" hidden>
+          <input id="cloudSearch" type="search" placeholder="Bulut kelimelerinde ara…" autocomplete="off">
+        </div>
         <div id="cloudList" class="cloud-list"></div>
         <div class="cloud-actions">
           <button class="link-btn" id="btnCloudSync" type="button">Senkronize et</button>
