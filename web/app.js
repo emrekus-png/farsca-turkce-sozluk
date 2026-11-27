@@ -1488,6 +1488,7 @@
       clearTimeout(pressTimer);
       pressTimer = setTimeout(() => {
         pressTimer = null;
+        if (cloudAuthed && isAdmin) { openCloudAdmin(); return; }
         $('#adminMsg').textContent = '';
         $('#adminPin').value = '';
         openSheet('adminSheet');
@@ -1686,7 +1687,17 @@
   renderReading();
 
   // Firebase başlatılınca onaylı kelimeleri çek, bekleyen kuyruğu gönder.
+  // Kayıtlı yönetici oturumu varsa PIN sormadan yönetici modunu geri yükle.
   if (window.AppCloud) {
-    AppCloud.init().then(function (ok) { if (ok) syncCloud(); });
+    AppCloud.init().then(function (ok) {
+      if (!ok) return;
+      syncCloud();
+      AppCloud.restore().then(function (res) {
+        if (!res || !res.admin) return;
+        cloudAuthed = true;
+        isAdmin = true;
+        applyAdmin();
+      });
+    });
   }
 })();

@@ -80,6 +80,29 @@
       .catch(function () { return false; });
   }
 
+  // Uygulama açılırken kayıtlı Firebase oturumunu geri yükle.
+  // Oturum varsa ve hesap yöneticiyse yönetici modunu sessizce aç.
+  function restore() {
+    if (!ready || !online()) return Promise.resolve({ user: '', admin: false });
+    return new Promise(function (resolve) {
+      let done = false;
+      let stop = null;
+      const finish = function (ok) {
+        if (done) return;
+        done = true;
+        try { if (stop) stop(); } catch (e) {}
+        admin = !!ok;
+        resolve({ user: ok ? currentUser() : '', admin: admin });
+      };
+      stop = auth.onAuthStateChanged(function (u) {
+        if (done) return;
+        user = u || null;
+        if (!u) { finish(false); return; }
+        checkAdmin().then(function (ok) { finish(ok); }).catch(function () { finish(false); });
+      });
+    });
+  }
+
   function signIn(email, password) {
     ensure();
     if (!email || !password) return Promise.reject(new Error('E-posta ve şifre gerekli'));
@@ -179,6 +202,7 @@
     isReady: isReady,
     currentUser: currentUser,
     isAdmin: isAdmin,
+    restore: restore,
     signIn: signIn,
     signOut: signOut,
     pull: pull,
