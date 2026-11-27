@@ -1307,6 +1307,22 @@
     else renderCloudWords();
   }
 
+  // Buluttan silinen kelimenin cihazdaki kopyalarını da temizle.
+  function removeWordEverywhere(w) {
+    const ids = [w.id, normFa(w.fa) + '::' + normTr(w.tr), w.wordId].filter(Boolean);
+    const has = (x) => ids.includes(x.id);
+    custom = custom.filter((x) => !has(x));
+    saveCustom();
+    submittedIds = submittedIds.filter((id) => !ids.includes(id));
+    saveSubmitted();
+    outbox = outbox.filter((x) => !ids.includes(x.id));
+    saveOutbox();
+    favorites = favorites.filter((id) => !ids.includes(id));
+    save(KEYS.favs, favorites);
+    refreshPool();
+    renderFavorites();
+  }
+
   function cloudItem(w) {
     const item = el('div', 'cloud-item');
     item.appendChild(el('div', 'cw-fa', w.fa));
@@ -1387,7 +1403,8 @@
         if (!confirm('"' + w.tr + '" silinecek. Emin misin?')) return;
         try {
           AppCloud.deleteApproved(w.id).then(function () {
-            toast('Silindi');
+            removeWordEverywhere(w);
+            toast('Kelime buluttan ve cihazdan silindi');
             syncCloud();
             renderCloudWords();
           }).catch(function (e) { alert(e.message || 'Silme hatası'); });
