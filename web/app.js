@@ -60,6 +60,7 @@
   let cloudTab = 'queue';
   let editingCloudId = null;
   let pendingCloud = [];
+  let cloudVisibleWords = [];
   let cloudShowAll = false;
 
   const STORY_LEVELS = [
@@ -1330,21 +1331,30 @@
     else renderCloudWords();
   }
 
-  // Buluttan silinen kelimenin cihazdaki kopyalarını da temizle.
-  function removeWordEverywhere(w) {
-    const ids = [w.id, normFa(w.fa) + '::' + normTr(w.tr), w.wordId].filter(Boolean);
-    const has = (x) => ids.includes(x.id);
+  // Buluttan silinen kelimelerin cihazdaki kopyalarını da temizle.
+  // Toplu silmede render'ı her kelime için yapmamak için quiet = true kullanılır.
+  function removeWordsEverywhere(words, quiet) {
+    const list = Array.isArray(words) ? words : [words];
+    const ids = new Set();
+    list.forEach(function (w) {
+      if (!w) return;
+      [w.id, normFa(w.fa) + '::' + normTr(w.tr), w.wordId].forEach(function (id) {
+        if (id && id !== '::') ids.add(id);
+      });
+    });
+    const has = (x) => ids.has(x.id);
     custom = custom.filter((x) => !has(x));
     saveCustom();
-    submittedIds = submittedIds.filter((id) => !ids.includes(id));
+    submittedIds = submittedIds.filter((id) => !ids.has(id));
     saveSubmitted();
-    outbox = outbox.filter((x) => !ids.includes(x.id));
+    outbox = outbox.filter((x) => !ids.has(x.id));
     saveOutbox();
-    favorites = favorites.filter((id) => !ids.includes(id));
+    favorites = favorites.filter((id) => !ids.has(id));
     save(KEYS.favs, favorites);
-    refreshPool();
-    renderFavorites();
+    if (!quiet) { refreshPool(); renderFavorites(); }
   }
+
+  function removeWordEverywhere(w) { removeWordsEverywhere([w]); }
 
   function cloudItem(w) {
     const item = el('div', 'cloud-item');
@@ -1363,6 +1373,8 @@
     $('#cloudSearchBar').hidden = true;
     $('#btnCloudApproveAll').disabled = true;
     $('#btnCloudRejectAll').disabled = true;
+    $('#btnCloudDeleteFound').disabled = true;
+    cloudVisibleWords = [];
     $('#cloudStatus').textContent = 'Bekleyen kelimeler yükleniyor…';
     try {
       AppCloud.pullPending().then(function (list) {
@@ -1417,14 +1429,22 @@
     box.innerHTML = '';
     $('#cloudBulkBar').hidden = true;
     $('#cloudSearchBar').hidden = false;
+    // Kuyruk düğmeleri bu sekmede hiçbir zaman aktif kalmasın.
+    pendingCloud = [];
+    $('#btnCloudApproveAll').disabled = true;
+    $('#btnCloudRejectAll').disabled = true;
     const all = approvedCloud.slice().sort(function (a, b) { return String(a.tr).localeCompare(String(b.tr), 'tr'); });
     $('#cloudStatus').textContent = AppCloud.currentUser() + ' · ' + all.length + ' onaylı kelime';
-    const q = $('#cloudSearch').value.trim().toLocaleLowerCase('tr');
+    const rawQ = $('#cloudSearch').value.trim();
+    const q = rawQ.toLocaleLowerCase('tr');
     const list = q ? all.filter(function (w) {
       return [w.fa, w.tr, w.pron].some(function (v) {
         return String(v || '').toLocaleLowerCase('tr').includes(q);
       });
     }) : all;
+    cloudVisibleWords = list;
+    // Arama yapılmadan toplu silme açılmaz.
+    $('#btnCloudDeleteFound').disabled = !rawQ || !list.length;
     if (!list.length) {
       box.appendChild(el('div', 'cloud-empty', q ? 'Eşleşen kelime yok.' : 'Henüz onaylı kelime yok. Önce senkronize et.'));
       return;
@@ -1464,6 +1484,58 @@
       less.type = 'button';
       less.addEventListener('click', function () { cloudShowAll = false; renderCloudWords(); });
       box.appendChild(less);
+    }
+  }
+
+  function openCloudDeleteConfirm() {
+    if (!cloudVisibleWords.length) { toast('Silinecek kelime yok'); return; }
+    $('#cloudDeleteInfo').textContent = cloudVisibleWords.length + ' kelime buluttan ve cihazlardan kalıcı olarak silinecek. Önce yedek dosyası indirilecek.';
+    $('#cloudDeleteConfirm').value = '';
+    $('#cloudDeleteMsg').textContent = '';
+    openSheet('cloudDeleteSheet');
+    setTimeout(function () { $('#cloudDeleteConfirm').focus(); }, 60);
+  }
+
+  function confirmCloudDelete() {
+    const answer = $('#cloudDeleteConfirm').value.trim().toLocaleUpperCase('tr');
+    if (answer !== 'SİL') {
+      $('#cloudDeleteMsg').textContent = 'Onaylamak için "SİL" yazmalısın.';
+      return;
+    }
+    const list = cloudVisibleWords.slice();
+    if (!list.length) return;
+    // Silmeden önce kullanıcıya yedek indir.
+    try {
+      const backup = list.map(function (w) {
+        return {
+          fa: w.fa || '', tr: w.tr || '', pron: w.pron || '',
+          pos: w.pos || '', cat: w.cat || '', exFa: w.exFa || '', exTr: w.exTr || ''
+        };
+      });
+      download('bulut-kelimeleri-yedek-' + new Date().toISOString().slice(0, 10) + '.json', JSON.stringify(backup, null, 2));
+    } catch (e) {}
+    closeSheet('cloudDeleteSheet');
+    const btn = $('#btnCloudDeleteFound');
+    btn.disabled = true;
+    $('#cloudStatus').textContent = list.length + ' kelime siliniyor…';
+    try {
+      AppCloud.deleteApprovedMany(list.map(function (w) { return w.id; })).then(function (n) {
+        const ids = new Set(list.map(function (w) { return w.id; }));
+        approvedCloud = approvedCloud.filter(function (w) { return !ids.has(w.id); });
+        save(KEYS.cloud, approvedCloud);
+        removeWordsEverywhere(list, true);
+        refreshPool();
+        renderFavorites();
+        toast(n + ' kelime silindi (yedek indirildi)');
+        syncCloud();
+        renderCloudWords();
+      }).catch(function (e) {
+        $('#cloudStatus').textContent = e.message || 'Silme hatası';
+        btn.disabled = false;
+      });
+    } catch (e) {
+      $('#cloudStatus').textContent = e.message || 'Bağlantı hatası';
+      btn.disabled = false;
     }
   }
 
@@ -1642,7 +1714,7 @@
     $('#btnSettings').addEventListener('click', () => { syncSettingsUI(); openSheet('settingsSheet'); });
     $$('[data-close]').forEach((b) => b.addEventListener('click', () => closeSheet(b.dataset.close)));
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') { closeSheet('settingsSheet'); closeSheet('addSheet'); closeSheet('importSheet'); closeSheet('adminSheet'); closeSheet('cloudLoginSheet'); closeSheet('cloudAdminSheet'); closeSheet('cloudEditSheet'); closeSheet('conjSheet'); }
+      if (e.key === 'Escape') { closeSheet('settingsSheet'); closeSheet('addSheet'); closeSheet('importSheet'); closeSheet('adminSheet'); closeSheet('cloudLoginSheet'); closeSheet('cloudAdminSheet'); closeSheet('cloudEditSheet'); closeSheet('cloudDeleteSheet'); closeSheet('conjSheet'); }
     });
 
     $('#setAppName').addEventListener('change', (e) => { settings.appName = e.target.value; commitSettings(); });
@@ -1712,6 +1784,9 @@
     $('#btnCloudLogout').addEventListener('click', cloudLogout);
     $('#btnCloudApproveAll').addEventListener('click', bulkApprovePending);
     $('#btnCloudRejectAll').addEventListener('click', bulkRejectPending);
+    $('#btnCloudDeleteFound').addEventListener('click', openCloudDeleteConfirm);
+    $('#btnCloudDeleteConfirm').addEventListener('click', confirmCloudDelete);
+    $('#cloudDeleteConfirm').addEventListener('keydown', function (e) { if (e.key === 'Enter') confirmCloudDelete(); });
     $('#cloudSearch').addEventListener('input', function () { cloudShowAll = false; if (cloudTab === 'words') renderCloudWords(); });
     $('#btnCloudSync').addEventListener('click', function () {
       toast('Senkronize ediliyor…');

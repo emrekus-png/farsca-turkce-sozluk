@@ -314,6 +314,7 @@
         </div>
         <div class="cloud-search" id="cloudSearchBar" hidden>
           <input id="cloudSearch" type="search" placeholder="Bulut kelimelerinde ara…" autocomplete="off">
+          <button class="cloud-btn danger" id="btnCloudDeleteFound" type="button" disabled>Arama sonuçlarını sil</button>
         </div>
         <div id="cloudList" class="cloud-list"></div>
         <div class="cloud-actions">
@@ -342,6 +343,23 @@
         <label class="field"><span>Örnek (Türkçe)</span><input id="cloudEditExTr" autocomplete="off"></label>
         <button class="primary-btn full" id="btnCloudEditSave" type="button">Kaydet</button>
         <p class="muted small" id="cloudEditMsg" role="status"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- BULUT ARAMA SONUÇLARINI TOPLU SİLME -->
+  <div class="sheet" id="cloudDeleteSheet" hidden>
+    <div class="sheet-backdrop" data-close="cloudDeleteSheet"></div>
+    <div class="sheet-panel">
+      <div class="sheet-head">
+        <h2>Arama sonuçlarını sil</h2>
+        <button class="icon-btn" type="button" data-close="cloudDeleteSheet" aria-label="Kapat">×</button>
+      </div>
+      <div class="sheet-body">
+        <p class="muted small" id="cloudDeleteInfo"></p>
+        <label class="field"><span>Onaylamak için "SİL" yazın</span><input id="cloudDeleteConfirm" autocomplete="off"></label>
+        <button class="primary-btn full danger" id="btnCloudDeleteConfirm" type="button">Kalıcı olarak sil</button>
+        <p class="muted small" id="cloudDeleteMsg" role="status"></p>
       </div>
     </div>
   </div>

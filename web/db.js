@@ -284,6 +284,20 @@
     return store.collection('words').doc(id).delete().then(bumpRevision);
   }
 
+  function deleteApprovedMany(ids) {
+    ensure();
+    if (!admin) return Promise.reject(new Error('Bu hesap yönetici değil'));
+    const list = (ids || []).filter(Boolean);
+    if (!list.length) return Promise.resolve(0);
+    return chunk(list, BATCH_SIZE).reduce(function (chain, part) {
+      return chain.then(function () {
+        const batch = store.batch();
+        part.forEach(function (id) { batch.delete(store.collection('words').doc(id)); });
+        return batch.commit();
+      });
+    }, Promise.resolve()).then(bumpRevision).then(function () { return list.length; });
+  }
+
   window.AppCloud = {
     init: init,
     isReady: isReady,
@@ -304,5 +318,6 @@
     upsertApproved: upsertApproved,
     updateApproved: updateApproved,
     deleteApproved: deleteApproved,
+    deleteApprovedMany: deleteApprovedMany,
   };
 })();
