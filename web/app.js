@@ -62,6 +62,7 @@
   let pendingCloud = [];
   let cloudVisibleWords = [];
   let cloudShowAll = false;
+  let cloudDupMode = false;
 
   const STORY_LEVELS = [
     { key: 'zor', label: 'Zor' },
@@ -1105,7 +1106,7 @@
           clearForm();
           $('#addOneMsg').textContent = 'Onaylı olarak eklendi: ' + fa + ' — ' + tr;
           toast('Kelime onaylı eklendi');
-          syncCloud();
+          syncCloud(true);
         }).catch(function (e) { $('#addOneMsg').textContent = e.message || 'Bulut hatası'; });
       } catch (e) { $('#addOneMsg').textContent = e.message || 'Bağlantı hatası'; }
       return;
@@ -1131,7 +1132,7 @@
     }
     $('#addOneMsg').textContent = 'Kontrol ediliyor…';
     try {
-      AppCloud.existsApproved(fa + '::' + tr).then(function (exists) {
+      AppCloud.existsApproved(normFa(fa) + '::' + normTr(tr)).then(function (exists) {
         if (exists) { duplicate(); return; }
         addAsGuest();
       }).catch(addAsGuest);
@@ -1338,7 +1339,7 @@
     const ids = new Set();
     list.forEach(function (w) {
       if (!w) return;
-      [w.id, normFa(w.fa) + '::' + normTr(w.tr), w.wordId].forEach(function (id) {
+      [w.id, w.docId, w.wordId, w.legacyId, normFa(w.fa) + '::' + normTr(w.tr)].forEach(function (id) {
         if (id && id !== '::') ids.add(id);
       });
     });
@@ -1433,10 +1434,19 @@
     pendingCloud = [];
     $('#btnCloudApproveAll').disabled = true;
     $('#btnCloudRejectAll').disabled = true;
+
     const all = approvedCloud.slice().sort(function (a, b) { return String(a.tr).localeCompare(String(b.tr), 'tr'); });
-    $('#cloudStatus').textContent = AppCloud.currentUser() + ' · ' + all.length + ' onaylı kelime';
     const rawQ = $('#cloudSearch').value.trim();
     const q = rawQ.toLocaleLowerCase('tr');
+    const btnDup = $('#btnCloudFindDup');
+    if (btnDup) btnDup.textContent = cloudDupMode ? 'Tüm listeyi göster' : 'Tekrarları bul';
+
+    if (cloudDupMode) {
+      renderCloudDuplicates(box, all);
+      return;
+    }
+
+    $('#cloudStatus').textContent = AppCloud.currentUser() + ' · ' + all.length + ' onaylı kelime';
     const list = q ? all.filter(function (w) {
       return [w.fa, w.tr, w.pron].some(function (v) {
         return String(v || '').toLocaleLowerCase('tr').includes(q);
@@ -1465,7 +1475,7 @@
           AppCloud.deleteApproved(w.id).then(function () {
             removeWordEverywhere(w);
             toast('Kelime buluttan ve cihazdan silindi');
-            syncCloud();
+            syncCloud(true);
             renderCloudWords();
           }).catch(function (e) { alert(e.message || 'Silme hatası'); });
         } catch (e) { alert(e.message || 'Silme hatası'); }
@@ -1484,6 +1494,61 @@
       less.type = 'button';
       less.addEventListener('click', function () { cloudShowAll = false; renderCloudWords(); });
       box.appendChild(less);
+    }
+  }
+
+  function renderCloudDuplicates(box, all) {
+    const btnDel = $('#btnCloudDeleteFound');
+    btnDel.disabled = true;
+    cloudVisibleWords = [];
+
+    const groups = new Map();
+    all.forEach(function (w) {
+      const key = normFa(w.fa) + '||' + normTr(w.tr);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(w);
+    });
+    const dupGroups = Array.from(groups.values()).filter(function (g) { return g.length > 1; });
+
+    const totalDup = dupGroups.reduce(function (n, g) { return n + g.length; }, 0);
+    $('#cloudStatus').textContent = AppCloud.currentUser() + ' · ' + dupGroups.length + ' tekrar grubu (' + totalDup + ' kayıt)';
+
+    if (!dupGroups.length) {
+      box.appendChild(el('div', 'cloud-empty', 'Farsça + Türkçe aynı olan tekrar bulunamadı.'));
+      return;
+    }
+
+    const frag = document.createDocumentFragment();
+    dupGroups.slice(0, 100).forEach(function (group) {
+      const wrap = el('div', 'cloud-dup-group');
+      const head = el('div', 'cloud-dup-head');
+      head.appendChild(el('span', '', group[0].fa + ' — ' + group[0].tr));
+      head.appendChild(el('span', 'cloud-dup-count', group.length + ' kayıt'));
+      wrap.appendChild(head);
+
+      group.forEach(function (w) {
+        const row = cloudItem(w);
+        const del = el('button', 'cloud-btn danger', 'Sil');
+        del.type = 'button';
+        del.addEventListener('click', function () {
+          if (!confirm('"' + w.tr + '" silinecek. Emin misin?')) return;
+          try {
+            AppCloud.deleteApproved(w.id).then(function () {
+              removeWordEverywhere(w);
+              toast('Kelime silindi');
+              syncCloud(true);
+              renderCloudWords();
+            }).catch(function (e) { alert(e.message || 'Silme hatası'); });
+          } catch (e) { alert(e.message || 'Silme hatası'); }
+        });
+        row.actions.appendChild(del);
+        wrap.appendChild(row.item);
+      });
+      frag.appendChild(wrap);
+    });
+    box.appendChild(frag);
+    if (dupGroups.length > 100) {
+      box.appendChild(el('div', 'cloud-empty', 'İlk 100 tekrar grubu gösteriliyor. Silerek ilerleyin.'));
     }
   }
 
@@ -1527,7 +1592,7 @@
         refreshPool();
         renderFavorites();
         toast(n + ' kelime silindi (yedek indirildi)');
-        syncCloud();
+        syncCloud(true);
         renderCloudWords();
       }).catch(function (e) {
         $('#cloudStatus').textContent = e.message || 'Silme hatası';
@@ -1629,18 +1694,27 @@
     let items;
     try { items = parseImport(text); } catch (e) { $('#importMsg').textContent = 'Dosya okunamadı: ' + e.message; return; }
     if (!items.length) { $('#importMsg').textContent = 'Geçerli kelime bulunamadı.'; return; }
-    const plain = items.map(function (x) {
-      return { fa: x.fa, tr: x.tr, pron: x.pron, pos: x.pos, cat: x.cat, exFa: x.exFa, exTr: x.exTr };
+    // Aynı fa::tr tekrarlarını tekilleştir (batch içinde sonuncu kalır).
+    const seen = new Set();
+    const plain = [];
+    items.forEach(function (x) {
+      const key = normFa(x.fa) + '::' + normTr(x.tr);
+      if (seen.has(key)) return;
+      seen.add(key);
+      plain.push({ fa: x.fa, tr: x.tr, pron: x.pron, pos: x.pos, cat: x.cat, exFa: x.exFa, exTr: x.exTr });
     });
+    const skipped = lastImportSkipped ? ' · ' + lastImportSkipped + ' satır atlandı' : '';
+    const deduped = items.length - plain.length;
+    const dupMsg = deduped ? ' · ' + deduped + ' tekrar atlandı' : '';
     $('#importMsg').textContent = 'Buluta yazılıyor… 0/' + Math.ceil(plain.length / 500) + ' parça';
     try {
       AppCloud.upsertApproved(plain, function (done, total, parts) {
         $('#importMsg').textContent = 'Buluta yazılıyor… ' + Math.ceil(done / 500) + '/' + parts + ' parça (' + done + '/' + total + ')';
       }).then(function () {
-        $('#importMsg').textContent = plain.length + ' kelime buluta eklendi.';
+        $('#importMsg').textContent = plain.length + ' kelime buluta eklendi' + dupMsg + skipped + '.';
         closeSheet('importSheet');
         toast(plain.length + ' kelime buluta eklendi');
-        syncCloud();
+        syncCloud(true);
       }).catch(function (e) { $('#importMsg').textContent = e.message || 'Hata'; });
     } catch (e) { $('#importMsg').textContent = e.message || 'Hata'; }
   }
@@ -1787,6 +1861,11 @@
     $('#btnCloudDeleteFound').addEventListener('click', openCloudDeleteConfirm);
     $('#btnCloudDeleteConfirm').addEventListener('click', confirmCloudDelete);
     $('#cloudDeleteConfirm').addEventListener('keydown', function (e) { if (e.key === 'Enter') confirmCloudDelete(); });
+    $('#btnCloudFindDup').addEventListener('click', function () {
+      cloudDupMode = !cloudDupMode;
+      cloudShowAll = false;
+      if (cloudTab === 'words') renderCloudWords();
+    });
     $('#cloudSearch').addEventListener('input', function () { cloudShowAll = false; if (cloudTab === 'words') renderCloudWords(); });
     $('#btnCloudSync').addEventListener('click', function () {
       toast('Senkronize ediliyor…');

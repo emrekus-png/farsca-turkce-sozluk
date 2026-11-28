@@ -43,6 +43,17 @@
     return clean(w).fa + '::' + clean(w).tr;
   }
 
+  // Firestore belge kimliği: "/" yol ayırıcıdır, kimliği güvenli hale getir.
+  // Görünen fa/tr alanları değişmez; sadece belge adresi sanitize edilir.
+  function docId(w) {
+    const raw = typeof w === 'string' ? w : wordId(w);
+    let id = String(raw || '').replace(/\//g, '／').replace(/[\u0000-\u001f\u007f]/g, '');
+    id = id.replace(/^\.+|\.+$/g, '').trim();
+    if (!id || id === '::' || id === '／／') id = 'kelime_' + Date.now();
+    if (id === '__proto__' || id === 'constructor' || id === 'prototype') id = '_' + id;
+    return id.slice(0, 1500);
+  }
+
   function chunk(items, size) {
     const out = [];
     for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
@@ -51,7 +62,10 @@
 
   function fromDoc(doc) {
     const d = clean(doc.data() || {});
-    return Object.assign({ id: doc.id, wordId: wordId(d) }, d);
+    const wid = wordId(d);
+    // Eski kayıtların doc.id'si fa::tr idi, yeniler sanitize docId.
+    // İkisini de tutuyoruz ki tekrar kontrolü ve silme güvenilir olsun.
+    return Object.assign({ id: doc.id, wordId: wid, docId: doc.id, legacyId: wid }, d);
   }
 
   function ensure() {
@@ -167,11 +181,15 @@
   }
 
   // Misafir tek eklemede kelimenin zaten onaylı olup olmadığını kontrol et.
+  // Hem yeni sanitize ID hem eski fa::tr ID'ye bak (geriye uyumluluk).
   function existsApproved(id) {
     if (!ready || !online() || !id) return Promise.resolve(false);
-    return store.collection('words').doc(id).get()
-      .then(function (d) { return !!d.exists; })
-      .catch(function () { return false; });
+    const ids = [docId(id)];
+    const raw = String(id);
+    if (ids.indexOf(raw) === -1) ids.push(raw);
+    return Promise.all(ids.map(function (x) {
+      return store.collection('words').doc(x).get().then(function (d) { return !!d.exists; }).catch(function () { return false; });
+    })).then(function (res) { return res.some(Boolean); });
   }
 
   function submit(word) {
@@ -196,7 +214,7 @@
     ensure();
     if (!admin) return Promise.reject(new Error('Bu hesap yönetici değil'));
     const w = clean(doc);
-    const target = (doc && doc.wordId && doc.wordId !== '::') ? doc.wordId : wordId(w);
+    const target = docId((doc && doc.wordId && doc.wordId !== '::') ? doc.wordId : w);
     return store.collection('words').doc(target).set(Object.assign({}, w, {
       approvedAt: firebase.firestore.FieldValue.serverTimestamp(),
     })).then(function () {
@@ -222,7 +240,7 @@
         const batch = store.batch();
         part.forEach(function (doc) {
           const w = clean(doc);
-          const target = (doc.wordId && doc.wordId !== '::') ? doc.wordId : wordId(w);
+          const target = docId((doc.wordId && doc.wordId !== '::') ? doc.wordId : w);
           batch.set(store.collection('words').doc(target), Object.assign({}, w, {
             approvedAt: firebase.firestore.FieldValue.serverTimestamp(),
           }));
@@ -258,7 +276,7 @@
       return chain.then(function () {
         const batch = store.batch();
         part.forEach(function (w) {
-          batch.set(store.collection('words').doc(wordId(w)), Object.assign({}, w, {
+          batch.set(store.collection('words').doc(docId(w)), Object.assign({}, w, {
             updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
           }));
         });

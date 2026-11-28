@@ -356,6 +356,9 @@ main { flex: 1; padding: 0 16px 16px; }
 }
 .cloud-more { text-align: center; padding: 6px 0 2px; }
 .primary-btn.danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+.cloud-dup-group { border: 1px solid var(--border); border-radius: 12px; padding: 8px; background: var(--bg); display: grid; gap: 6px; }
+.cloud-dup-head { display: flex; justify-content: space-between; gap: 8px; font-size: .8rem; font-weight: 700; color: var(--accent); padding: 2px 4px; }
+.cloud-dup-count { color: var(--muted); font-weight: 600; white-space: nowrap; }
 .cloud-list { display: grid; gap: 8px; max-height: 46vh; overflow: auto; }
 .cloud-item {
   border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px;
