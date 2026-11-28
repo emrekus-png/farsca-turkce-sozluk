@@ -314,8 +314,11 @@
         </div>
         <div class="cloud-search" id="cloudSearchBar" hidden>
           <input id="cloudSearch" type="search" placeholder="Bulut kelimelerinde ara…" autocomplete="off">
-          <button class="cloud-btn" id="btnCloudFindDup" type="button">Tekrarları bul</button>
           <button class="cloud-btn danger" id="btnCloudDeleteFound" type="button" disabled>Arama sonuçlarını sil</button>
+        </div>
+        <div class="cloud-dup-bar" id="cloudDupBar" hidden>
+          <button class="cloud-btn primary full" id="btnCloudFindDup" type="button">Tekrarları bul</button>
+          <p class="muted small" id="cloudDupHint">Arama yapmana gerek yok; sistem aynı Farsça+Türkçe kayıtları bulur.</p>
         </div>
         <div id="cloudList" class="cloud-list"></div>
         <div class="cloud-actions">

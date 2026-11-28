@@ -347,8 +347,11 @@ main { flex: 1; padding: 0 16px 16px; }
 /* ---------- Bulut / onay kuyruğu ---------- */
 .cloud-tabs { display: flex; gap: 8px; margin: 10px 0; flex-wrap: wrap; }
 .cloud-bulk { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
-.cloud-bulk[hidden], .cloud-search[hidden] { display: none; }
+.cloud-bulk[hidden], .cloud-search[hidden], .cloud-dup-bar[hidden] { display: none; }
 .cloud-search { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.cloud-dup-bar { margin-bottom: 10px; }
+.cloud-dup-bar .cloud-btn { width: 100%; min-height: 40px; font-weight: 700; }
+.cloud-dup-bar .muted { margin: 6px 2px 0; }
 .cloud-search input {
   flex: 1 1 180px; min-width: 0; min-height: 38px; padding: 8px 10px;
   border: 1px solid var(--border); border-radius: 10px;

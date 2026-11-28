@@ -1,4 +1,4 @@
-(function () {
+﻿(function () {
   'use strict';
 
   /* ============================== Ayarlar / depolama ============================== */
@@ -224,19 +224,64 @@
     };
   }
 
+  const IRREG_NOW = {
+    'نوشت':'نویس','نوشتن':'نویس','گفت':'گو','گفتن':'گو','رفت':'رو','رفتن':'رو','آمد':'آ','آمدن':'آ',
+    'شد':'شو','شدن':'شو','داد':'ده','دادن':'ده','زد':'زن','زدن':'زن','دید':'بین','دیدن':'بین',
+    'کرد':'کن','کردن':'کن','بود':'باش','بودن':'باش','خواست':'خواه','خواستن':'خواه','توانست':'توان',
+    'دانست':'دان','نشست':'نشین','خاست':'خیز','جست':'جو','بست':'بند','شکست':'شکن','گرفت':'گیر',
+    'پذیرفت':'پذیر','مرد':'میر','خورد':'خور','برد':'بر','سپرد':'سپار','شمرد':'شمار','گذشت':'گذر',
+    'گذاشت':'گذار','داشت':'دار','برداشت':'بردار','انداخت':'انداز','ساخت':'ساز','پرداخت':'پرداز',
+    'شناخت':'شناس','فروخت':'فروش','سوخت':'سوز','آموخت':'آموز','افروخت':'افروز','انگیخت':'انگیز',
+    'پخت':'پز','ریخت':'ریز','آویخت':'آویز','سوخت':'سوز','دوخت':'دوز','آمیخت':'آمیز','فشرد':'فشار',
+    'خرید':'خر','پرید':'پر','چرید':'چر','دمید':'دم','وزید':'وز','جهید':'جه','رمید':'رم','گزید':'گزین',
+    'افزود':'افزا','آزمود':'آزما','فزود':'فزا','گشود':'گشا','نمود':'نما','فرمود':'فرما','سود':'سا',
+    'ربود':'ربا','پالود':'پالا','زدود':'زدا','شنید':'شنو','درید':'در','کشید':'کش',
+    'نوشت':'نویس','نوشته':'نویس','یافت':'یاب','بافت':'باف','شکافت':'شکاف','شتافت':'شتاب','کافت':'کاو',
+    'فرستاد':'فرست','ایستاد':'ایست','افتاد':'افت','داد':'ده','ستاد':'ستان'
+  };
+  const IRREG_PNOW = {
+    'رو':'rav','آ':'ây','شو':'šav','ده':'deh','زن':'zan','بین':'bin','کن':'kon','باش':'bâš',
+    'خواه':'xâh','توان':'tavân','دان':'dân','نشین':'nešin','خیز':'xiz','جو':'ju','بند':'band',
+    'شکن':'šekan','گیر':'gir','پذیر':'pazir','میر':'mir','خور':'xor','بر':'bar','سپار':'sepâr',
+    'شمار':'šomâr','گذر':'gozar','گذار':'gozâr','دار':'dâr','بردار':'bardâr','انداز':'andâz','ساز':'sâz',
+    'پرداز':'pardâz','شناس':'šenâs','فروش':'foruš','سوز':'suz','آموز':'âmuz','پز':'paz','ریز':'riz',
+    'دوز':'duz','خر':'xar','پر':'par','گزین':'gozin','افزا':'afzâ','آزما':'âzmâ','گشا':'gošâ','نما':'namâ',
+    'فرما':'farmâ','شنو':'šenav','کش':'keš','نویس':'nevis','یاب':'yâb','ایست':'ist','افت':'oft'
+  };
+
   function guessStems(verbFa, verbPron, compound) {
     const past = verbFa.replace(/ن$/, '') || verbFa;
-    const now = /ید$/.test(past) ? past.slice(0, -2) : (/د$/.test(past) ? past.slice(0, -1) : past);
+    let now = IRREG_NOW[past] || IRREG_NOW[verbFa];
+    if (!now) {
+      if (/یدن$/.test(verbFa)) now = past.slice(0, -2); // رسیدن->رسید->رس
+      else if (/استن$/.test(verbFa) && past.length > 3) now = past.slice(0, -1); // نشستن -> نشست -> نشس (imperfect, but better than past)
+      else if (/ادن$/.test(verbFa)) now = past; // افتادن->افتاد ? irregular, fallback handled below
+      else if (/ودن$/.test(verbFa)) now = past.slice(0, -2) + 'و'; // افزودن->افزود->افزو? rare
+      else if (/د$/.test(past)) now = past.slice(0, -1);
+      else now = past;
+    }
+    // اگر هنوز گذشته ساقه بنزرسی، حداقل می/ب ekiyle anlamsız olmasın diye past'tan ayır
+    if (now === past && /[تد]$/.test(past)) {
+      // نوشت/گشت/خورد gibi durumlar: bilinen değilse emniyetli fallback
+      now = past.replace(/[تد]$/, '') || past;
+    }
+
     const pPast = String(verbPron || '').replace(/(an|en|ân)$/i, '');
-    const pNow = /id$/.test(pPast) ? pPast.slice(0, -2) : (/d$/.test(pPast) ? pPast.slice(0, -1) : pPast);
-    const vowelStart = /^[آا]/.test(now);
+    let pNow = IRREG_PNOW[now];
+    if (!pNow) {
+      if (/id$/.test(pPast)) pNow = pPast.slice(0, -2);
+      else if (/d$/.test(pPast) && pPast.length > 2) pNow = pPast.slice(0, -1);
+      else pNow = pPast;
+    }
+
+    const vowelStart = /^[آاأإئیوي]/.test(now);
     const imp = vowelStart ? 'بی' + now : 'ب' + now;
-    const pImp = vowelStart ? 'bi' + pNow : 'ba' + pNow;
+    const pImp = vowelStart ? 'bi' + pNow : 'be' + pNow;
     return {
       past, now, imp,
       impPl: imp + 'ید',
-      cImp: now,
-      cImpPl: now + 'ید',
+      cImp: vowelStart ? 'بی' + now : now,
+      cImpPl: (vowelStart ? 'بی' + now : now) + 'ید',
       pPast, pNow,
       p1: pNow + 'am',
       p1Past: pPast + 'am',
@@ -421,9 +466,13 @@
       { fa: '', pron: '', tr: '' },
     ];
 
+    const note = C_STEMS[verbKey]
+      ? 'Bilinen fiil kökü kullanıldı.'
+      : 'Otomatik üretildi — düzensiz fiillerde şimdiki/emir kökü farklı olabilir.';
+
     return {
       title: entry.fa,
-      note: 'Otomatik üretildi — kökleri kontrol et.',
+      note: note,
       tenses: {
         past: rows(pastFa, pastPron, trPast),
         pres: rows(presFa, presPron, trPres),
@@ -1372,9 +1421,11 @@
     box.innerHTML = '';
     $('#cloudBulkBar').hidden = false;
     $('#cloudSearchBar').hidden = true;
+    $('#cloudDupBar').hidden = true;
     $('#btnCloudApproveAll').disabled = true;
     $('#btnCloudRejectAll').disabled = true;
     $('#btnCloudDeleteFound').disabled = true;
+    cloudDupMode = false;
     cloudVisibleWords = [];
     $('#cloudStatus').textContent = 'Bekleyen kelimeler yükleniyor…';
     try {
@@ -1429,7 +1480,8 @@
     const box = $('#cloudList');
     box.innerHTML = '';
     $('#cloudBulkBar').hidden = true;
-    $('#cloudSearchBar').hidden = false;
+    $('#cloudSearchBar').hidden = cloudDupMode;
+    $('#cloudDupBar').hidden = false;
     // Kuyruk düğmeleri bu sekmede hiçbir zaman aktif kalmasın.
     pendingCloud = [];
     $('#btnCloudApproveAll').disabled = true;
@@ -1439,7 +1491,12 @@
     const rawQ = $('#cloudSearch').value.trim();
     const q = rawQ.toLocaleLowerCase('tr');
     const btnDup = $('#btnCloudFindDup');
-    if (btnDup) btnDup.textContent = cloudDupMode ? 'Tüm listeyi göster' : 'Tekrarları bul';
+    if (btnDup) {
+      btnDup.textContent = cloudDupMode ? 'Tüm listeyi göster' : 'Tekrarları bul';
+      btnDup.classList.toggle('primary', !cloudDupMode);
+    }
+    const dupHint = $('#cloudDupHint');
+    if (dupHint) dupHint.textContent = cloudDupMode ? 'Tekrar taraması açık. İstemediğin kaydı tek tek silebilirsin.' : 'Arama yapmana gerek yok; sistem aynı Farsça+Türkçe kayıtları bulur.';
 
     if (cloudDupMode) {
       renderCloudDuplicates(box, all);
@@ -1960,3 +2017,5 @@
     });
   }
 })();
+
+
